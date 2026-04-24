@@ -1,0 +1,69 @@
+:host {
+  display: block;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  font-family: Arial, sans-serif;
+  background: #f4f4f4;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  background: #ffffff;
+  border-bottom: 1px solid #dcdcdc;
+}
+
+.file-button {
+  cursor: pointer;
+
+  input {
+    display: none;
+  }
+}
+
+button,
+.file-button {
+  padding: 8px 12px;
+  border: 1px solid #cfcfcf;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 14px;
+}
+
+button:hover,
+.file-button:hover {
+  background: #eeeeee;
+}
+
+.workspace {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+}
+
+.canvas-wrapper {
+  display: inline-block;
+  max-width: 100%;
+  background: #ffffff;
+  border: 1px solid #cccccc;
+}
+
+canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.status {
+  padding: 10px 12px;
+  background: #ffffff;
+  border-top: 1px solid #dcdcdc;
+  font-size: 14px;
+}

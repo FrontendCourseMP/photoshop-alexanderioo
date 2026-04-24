@@ -1,0 +1,28 @@
+<div class="app">
+  <header class="toolbar">
+    <label class="file-button">
+      Загрузить изображение
+      <input
+        type="file"
+        (change)="onFile($event)"
+        accept=".png,.jpg,.jpeg,.gb7"
+      />
+    </label>
+
+    @for (button of downloadButtons; track button.label) {
+    <button type="button" (click)="button.action()">
+      {{ button.label }}
+    </button>
+    }
+  </header>
+
+  <main class="workspace">
+    <div class="canvas-wrapper">
+      <canvas #canvas></canvas>
+    </div>
+  </main>
+
+  <footer class="status">
+    Ширина: {{ width }} | Высота: {{ height }} | Глубина: {{ depth }}
+  </footer>
+</div>

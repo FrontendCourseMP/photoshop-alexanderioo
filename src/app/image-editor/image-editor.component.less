@@ -1,0 +1,112 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-width: 390px;
+  margin: 0 auto;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f7f8fa;
+}
+
+/* ===== Toolbar ===== */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.file-button {
+  flex: 1 1 100%;
+  text-align: center;
+  padding: 10px;
+  border-radius: 10px;
+  background: #2563eb;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+
+  input {
+    display: none;
+  }
+
+  &:active {
+    background: #1e4ed8;
+  }
+}
+
+button {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: none;
+  background: #eef2ff;
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:active {
+    transform: scale(0.97);
+    background: #dbeafe;
+  }
+}
+
+.workspace {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
+  overflow: hidden; // ключевое
+}
+
+.canvas-wrapper {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden; // убираем вылезание
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+canvas {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+}
+
+/* ===== Status ===== */
+
+.status {
+  padding: 10px;
+  font-size: 12px;
+  color: #6b7280;
+  background: #ffffff;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
+}
+
+/* ===== Desktop fallback ===== */
+
+@media (min-width: 768px) {
+  .app {
+    max-width: 800px;
+  }
+
+  .toolbar {
+    flex-wrap: nowrap;
+  }
+
+  .file-button {
+    flex: 0;
+  }
+
+  button {
+    flex: 0;
+    padding: 8px 14px;
+  }
+}
