@@ -1,28 +1,67 @@
-<div class="app">
+<div class="editor">
   <header class="toolbar">
-    <label class="file-button">
+    <label class="btn btn-primary">
       Загрузить изображение
       <input
         type="file"
+        accept=".png,.jpg,.jpeg,.gb7,image/png,image/jpeg"
         (change)="onFile($event)"
-        accept=".png,.jpg,.jpeg,.gb7"
+        hidden
       />
     </label>
 
-    @for (button of downloadButtons; track button.label) {
-    <button type="button" (click)="button.action()">
-      {{ button.label }}
+    @if (info()?.hasMask) {
+    <button
+      type="button"
+      class="btn"
+      [class.active]="showMasked()"
+      (click)="toggleMask()"
+    >
+      {{ showMasked() ? "Скрыть маскированные" : "Показать маскированные" }}
     </button>
     }
+
+    <div class="toolbar-group">
+      @for (btn of downloadButtons; track btn.label) {
+      <button
+        type="button"
+        class="btn"
+        [disabled]="!hasImage()"
+        (click)="btn.action()"
+      >
+        {{ btn.label }}
+      </button>
+      }
+    </div>
   </header>
 
-  <main class="workspace">
-    <div class="canvas-wrapper">
+  <main class="canvas-area">
+    @if (!hasImage()) {
+    <div class="empty">
+      <p>Загрузите изображение в формате PNG, JPG или GB7</p>
+    </div>
+    }
+
+    <div class="canvas-wrapper" [class.hidden]="!hasImage()">
       <canvas #canvas></canvas>
     </div>
   </main>
 
-  <footer class="status">
-    Ширина: {{ width }} | Высота: {{ height }} | Глубина: {{ depth }}
+  <footer class="status-bar">
+    @if (info(); as i) {
+    <span>
+      Ширина: <b>{{ i.width }}</b> px
+    </span>
+    <span>
+      Высота: <b>{{ i.height }}</b> px
+    </span>
+    <span>
+      Глубина цвета: <b>{{ i.depth }}</b> бит
+    </span>
+    @if (i.hasMask) {
+    <span>Маска: <b>есть</b></span>
+    } } @else {
+    <span>Изображение не загружено</span>
+    }
   </footer>
 </div>

@@ -1,112 +1,200 @@
-.app {
-  display: flex;
-  flex-direction: column;
+:host {
+  display: block;
   height: 100vh;
-  max-width: 390px;
-  margin: 0 auto;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #f7f8fa;
+  background: #fff8d6;
+  color: #1a1a1a;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI",
+    sans-serif;
+  font-size: 14px;
 }
 
-/* ===== Toolbar ===== */
+.editor {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100%;
+  min-height: 0;
+}
 
 .toolbar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px;
-  background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.file-button {
-  flex: 1 1 100%;
-  text-align: center;
-  padding: 10px;
-  border-radius: 10px;
-  background: #2563eb;
-  color: white;
-  font-weight: 500;
-  cursor: pointer;
-
-  input {
-    display: none;
-  }
-
-  &:active {
-    background: #1e4ed8;
-  }
-}
-
-button {
-  flex: 1;
-  padding: 8px;
-  border-radius: 8px;
-  border: none;
-  background: #eef2ff;
-  color: #1e3a8a;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-
-  &:active {
-    transform: scale(0.97);
-    background: #dbeafe;
-  }
-}
-
-.workspace {
-  flex: 1;
-  display: flex;
-  justify-content: center;
   align-items: center;
-  padding: 12px;
-  overflow: hidden; // ключевое
+  gap: 12px;
+  padding: 14px 20px;
+  background: #ffd60a;
+  border-bottom: 3px solid #1a1a1a;
+  flex-wrap: wrap;
+
+  &-group {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+  }
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 18px;
+  background: #fffbe6;
+  color: #1a1a1a;
+  border: 2px solid #1a1a1a;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 3px 3px 0 #1a1a1a;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+
+  &:hover:not(:disabled) {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 #1a1a1a;
+  }
+
+  &:active:not(:disabled) {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 #1a1a1a;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: 2px 2px 0 #1a1a1a;
+  }
+
+  &.active {
+    background: #1a1a1a;
+    color: #ffd60a;
+  }
+
+  &-primary {
+    background: #1a1a1a;
+    color: #ffd60a;
+
+    &:hover:not(:disabled) {
+      background: #000;
+    }
+  }
+}
+
+.canvas-area {
+  position: relative;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  min-width: 0;
+  min-height: 0;
+  background-color: #fff8d6;
+  background-image: radial-gradient(circle, #1a1a1a 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
 }
 
 .canvas-wrapper {
-  width: 100%;
-  height: 100%;
-  max-height: 100%;
-  overflow: hidden; // убираем вылезание
   display: flex;
-  justify-content: center;
-  align-items: center;
-}
-canvas {
   max-width: 100%;
   max-height: 100%;
-  display: block;
+  min-width: 0;
+  min-height: 0;
+
+  &.hidden {
+    display: none;
+  }
+
+  canvas {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    background: #fff;
+    border: 3px solid #1a1a1a;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    image-rendering: pixelated;
+  }
 }
 
-/* ===== Status ===== */
-
-.status {
-  padding: 10px;
-  font-size: 12px;
-  color: #6b7280;
-  background: #ffffff;
-  border-top: 1px solid #e5e7eb;
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 64px;
+  background: #fffbe6;
+  border: 3px dashed #1a1a1a;
+  border-radius: 8px;
+  color: #1a1a1a;
   text-align: center;
+  box-shadow: 6px 6px 0 #1a1a1a;
+
+  p {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
 }
 
-/* ===== Desktop fallback ===== */
+.status-bar {
+  display: flex;
+  gap: 24px;
+  padding: 10px 20px;
+  background: #1a1a1a;
+  color: #ffd60a;
+  font-size: 12px;
+  font-family: "SF Mono", Menlo, Monaco, "Courier New", monospace;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 
-@media (min-width: 768px) {
-  .app {
-    max-width: 800px;
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
 
+  b {
+    color: #fff;
+    font-weight: 700;
+  }
+}
+
+@media (max-width: 640px) {
   .toolbar {
-    flex-wrap: nowrap;
+    padding: 10px 12px;
+
+    &-group {
+      margin-left: 0;
+      width: 100%;
+    }
   }
 
-  .file-button {
-    flex: 0;
+  .canvas-area {
+    padding: 16px;
   }
 
-  button {
-    flex: 0;
+  .status-bar {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+
+  .btn {
     padding: 8px 14px;
+    font-size: 12px;
+    box-shadow: 2px 2px 0 #1a1a1a;
+
+    &:hover:not(:disabled) {
+      box-shadow: 3px 3px 0 #1a1a1a;
+    }
+  }
+
+  .canvas-wrapper canvas {
+    box-shadow: 4px 4px 0 #1a1a1a;
   }
 }
