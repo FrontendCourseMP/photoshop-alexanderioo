@@ -1,0 +1,34 @@
+:host {
+  display: block;
+}
+
+.status-bar {
+  display: flex;
+  gap: 20px;
+  padding: 6px 16px;
+  background: #252525;
+  color: #b0b0b0;
+  font-size: 11px;
+  font-family: "SF Mono", Menlo, Monaco, "Courier New", monospace;
+  border-top: 1px solid #3a3a3a;
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  b {
+    color: #fff;
+    font-weight: 600;
+  }
+}
+
+@media (max-width: 768px) {
+  .status-bar {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 6px 12px;
+    font-size: 10px;
+  }
+}

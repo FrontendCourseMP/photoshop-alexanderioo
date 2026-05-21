@@ -1,0 +1,35 @@
+<header class="toolbar">
+  <label class="btn btn-primary">
+    Загрузить изображение
+    <input
+      type="file"
+      accept=".png,.jpg,.jpeg,.gb7,image/png,image/jpeg"
+      (change)="fileSelected.emit($event)"
+      hidden
+    />
+  </label>
+
+  @if (hasMask()) {
+  <button
+    type="button"
+    class="btn"
+    [class.active]="showMasked()"
+    (click)="maskToggled.emit()"
+  >
+    {{ showMasked() ? "Скрыть маскированные" : "Показать маскированные" }}
+  </button>
+  }
+
+  <div class="toolbar-group">
+    @for (btn of downloadButtons(); track btn.label) {
+    <button
+      type="button"
+      class="btn"
+      [disabled]="!hasImage()"
+      (click)="btn.action()"
+    >
+      {{ btn.label }}
+    </button>
+    }
+  </div>
+</header>

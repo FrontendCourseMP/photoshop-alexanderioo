@@ -1,0 +1,17 @@
+<footer class="status-bar">
+  @if (info(); as i) {
+  <span
+    >Ширина: <b>{{ i.width }}</b> px</span
+  >
+  <span
+    >Высота: <b>{{ i.height }}</b> px</span
+  >
+  <span
+    >Глубина цвета: <b>{{ i.depth }}</b> бит</span
+  >
+  @if (i.hasMask) {
+  <span>Маска: <b>есть</b></span>
+  } } @else {
+  <span>Изображение не загружено</span>
+  }
+</footer>
