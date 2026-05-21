@@ -1,0 +1,121 @@
+<dialog #dialog class="levels-dialog" (close)="cancelled.emit()">
+  <div class="dialog-content">
+    <header class="dialog-header">
+      <h2>Уровни</h2>
+      <button type="button" class="close-btn" (click)="cancel()">×</button>
+    </header>
+
+    <div class="row">
+      <label>
+        Канал:
+        <select
+          [value]="channel()"
+          (change)="onChannelChange($any($event.target).value)"
+        >
+          @for (c of channels; track c.value) {
+          <option [value]="c.value">{{ c.label }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        Шкала:
+        <select
+          [value]="scale()"
+          (change)="onScaleChange($any($event.target).value)"
+        >
+          <option value="linear">Линейная</option>
+          <option value="log">Логарифмическая</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="histogram" [style.--ch-color]="channelColor()">
+      <canvas #histCanvas width="512" height="160"></canvas>
+
+      <!-- маркеры под гистограммой -->
+      <div class="markers">
+        <div
+          class="marker marker--black"
+          [style.left.%]="(current().black / 255) * 100"
+          title="Точка чёрного"
+        ></div>
+        <div
+          class="marker marker--gamma"
+          [style.left.%]="
+            ((current().black + (current().white - current().black) / 2) /
+              255) *
+            100
+          "
+          title="Гамма"
+        ></div>
+        <div
+          class="marker marker--white"
+          [style.left.%]="(current().white / 255) * 100"
+          title="Точка белого"
+        ></div>
+      </div>
+    </div>
+
+    <div class="sliders">
+      <label class="slider-row">
+        <span
+          >Чёрная: <b>{{ current().black }}</b></span
+        >
+        <input
+          type="range"
+          min="0"
+          max="254"
+          [value]="current().black"
+          (input)="onBlackChange(+$any($event.target).value)"
+        />
+      </label>
+
+      <label class="slider-row">
+        <span
+          >Гамма: <b>{{ current().gamma.toFixed(2) }}</b></span
+        >
+        <input
+          type="range"
+          min="0.1"
+          max="9.9"
+          step="0.01"
+          [value]="current().gamma"
+          (input)="onGammaChange(+$any($event.target).value)"
+        />
+      </label>
+
+      <label class="slider-row">
+        <span
+          >Белая: <b>{{ current().white }}</b></span
+        >
+        <input
+          type="range"
+          min="1"
+          max="255"
+          [value]="current().white"
+          (input)="onWhiteChange(+$any($event.target).value)"
+        />
+      </label>
+    </div>
+
+    <footer class="dialog-footer">
+      <label class="preview-toggle">
+        <input
+          type="checkbox"
+          [checked]="preview()"
+          (change)="onPreviewToggle($any($event.target).checked)"
+        />
+        Предпросмотр
+      </label>
+
+      <div class="actions">
+        <button type="button" class="btn" (click)="reset()">Сброс</button>
+        <button type="button" class="btn" (click)="cancel()">Отмена</button>
+        <button type="button" class="btn btn-primary" (click)="apply()">
+          Применить
+        </button>
+      </div>
+    </footer>
+  </div>
+</dialog>
