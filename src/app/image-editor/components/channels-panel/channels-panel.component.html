@@ -1,0 +1,15 @@
+<aside class="channels">
+  <h3 class="title">Каналы</h3>
+  <div class="list">
+    @for (t of thumbs(); track t.key) {
+    <button
+      type="button"
+      class="channel"
+      [class.active]="isActive(t.key)"
+      (click)="onToggle(t.key)"
+    >
+      <img [src]="t.dataUrl" [alt]="t.label" /> <span>{{ t.label }}</span>
+    </button>
+    }
+  </div>
+</aside>
