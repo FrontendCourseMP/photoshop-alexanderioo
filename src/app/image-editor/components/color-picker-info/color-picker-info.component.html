@@ -1,0 +1,36 @@
+@if (pixel(); as p) {
+<div class="picker">
+  <div
+    class="swatch"
+    [style.background]="
+      'rgba(' + p.r + ',' + p.g + ',' + p.b + ',' + p.a / 255 + ')'
+    "
+  ></div>
+  <div class="rows">
+    <span
+      >X: <b>{{ p.x }}</b></span
+    >
+    <span
+      >Y: <b>{{ p.y }}</b></span
+    >
+    <span
+      >R: <b>{{ p.r }}</b></span
+    >
+    <span
+      >G: <b>{{ p.g }}</b></span
+    >
+    <span
+      >B: <b>{{ p.b }}</b></span
+    >
+    <span
+      >L*: <b>{{ p.l | number : "1.1-1" }}</b></span
+    >
+    <span
+      >a*: <b>{{ p.labA | number : "1.1-1" }}</b></span
+    >
+    <span
+      >b*: <b>{{ p.labB | number : "1.1-1" }}</b></span
+    >
+  </div>
+</div>
+}

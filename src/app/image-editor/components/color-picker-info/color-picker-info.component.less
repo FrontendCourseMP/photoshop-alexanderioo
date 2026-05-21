@@ -1,0 +1,35 @@
+:host {
+  display: block;
+  padding: 8px 12px;
+  background: #252525;
+  border-top: 1px solid #3a3a3a;
+}
+.picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  font-family: "SF Mono", Menlo, Monaco, monospace;
+  color: #b0b0b0;
+}
+.swatch {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  background-image: linear-gradient(45deg, #555 25%, transparent 25%),
+    linear-gradient(-45deg, #555 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #555 75%),
+    linear-gradient(-45deg, transparent 75%, #555 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+}
+.rows {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  gap: 4px 16px;
+  b {
+    color: #fff;
+    font-weight: 600;
+  }
+}

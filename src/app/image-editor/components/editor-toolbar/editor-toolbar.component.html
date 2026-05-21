@@ -8,7 +8,18 @@
       hidden
     />
   </label>
-
+  <button
+    type="button"
+    class="btn"
+    [class.active]="activeTool() === 'eyedropper'"
+    [disabled]="!hasImage()"
+    (click)="
+      toolSelected.emit(activeTool() === 'eyedropper' ? 'none' : 'eyedropper')
+    "
+    title="Пипетка"
+  >
+    🎯 Пипетка
+  </button>
   @if (hasMask()) {
   <button
     type="button"
@@ -19,7 +30,6 @@
     {{ showMasked() ? "Скрыть маскированные" : "Показать маскированные" }}
   </button>
   }
-
   <div class="toolbar-group">
     @for (btn of downloadButtons(); track btn.label) {
     <button
