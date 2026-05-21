@@ -4,20 +4,40 @@
     [hasMask]="hasMask()"
     [showMasked]="showMasked()"
     [downloadButtons]="downloadButtons"
+    [activeTool]="activeTool()"
     (fileSelected)="onFile($event)"
     (maskToggled)="toggleMask()"
+    (toolSelected)="onToolSelected($event)"
   />
 
-  <main class="canvas-area">
-    @if (!hasImage()) {
-    <div class="empty">
-      <p>Загрузите изображение в формате PNG, JPG или GB7</p>
-    </div>
-    }
+  <div class="workspace">
+    <main
+      class="canvas-area"
+      [class.eyedropper]="activeTool() === 'eyedropper'"
+    >
+      @if (!hasImage()) {
+      <div class="empty">
+        <p>Загрузите изображение в формате PNG, JPG или GB7</p>
+      </div>
+      }
 
-    <div class="canvas-wrapper" [class.hidden]="!hasImage()">
-      <canvas #canvas></canvas>
-    </div>
-  </main>
-  <app-editor-status-bar [info]="info()"></app-editor-status-bar>
+      <div class="canvas-wrapper" [class.hidden]="!hasImage()">
+        <canvas #canvas (click)="onCanvasClick($event)"></canvas>
+      </div>
+    </main>
+
+    @if (hasImage()) {
+    <app-channels-panel
+      [thumbs]="channelThumbs()"
+      [state]="channelState()"
+      (channelToggled)="onChannelToggle($event)"
+    />
+    }
+  </div>
+
+  @if (activeTool() === 'eyedropper' && pixelInfo()) {
+  <app-color-picker-info [pixel]="pixelInfo()" />
+  }
+
+  <app-editor-status-bar [info]="info()" />
 </div>

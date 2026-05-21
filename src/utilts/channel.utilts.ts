@@ -1,4 +1,7 @@
-import { ChannelKey, ChannelState } from "../image-editor/models/channel.model";
+import {
+  ChannelKey,
+  ChannelState,
+} from "../app/image-editor/models/channel.model";
 
 const THUMB_SIZE = 64;
 

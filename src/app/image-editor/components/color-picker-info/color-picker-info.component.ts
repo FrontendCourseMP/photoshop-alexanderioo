@@ -1,5 +1,6 @@
 import { DecimalPipe } from "@angular/common";
-import { Component } from "@angular/core";
+import { Component, input } from "@angular/core";
+import { PixelInfo } from "../../models/channel.model";
 
 @Component({
   selector: "app-color-picker-info",
@@ -7,4 +8,6 @@ import { Component } from "@angular/core";
   templateUrl: "./color-picker-info.component.html",
   styleUrl: "./color-picker-info.component.less",
 })
-export class ColorPickerInfoComponent {}
+export class ColorPickerInfoComponent {
+  readonly pixel = input<PixelInfo | null>(null);
+}
