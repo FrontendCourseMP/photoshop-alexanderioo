@@ -163,7 +163,11 @@ export class ImageEditorComponent {
   // === Levels ===
 
   openLevels(): void {
-    if (!this.originalImageData) return;
+    if (!this.originalImageData) {
+      return;
+    }
+
+    this.levelsSource.set(this.originalImageData);
     this.levelsOpen.set(true);
   }
 
