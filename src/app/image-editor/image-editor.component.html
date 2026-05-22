@@ -8,6 +8,7 @@
     (fileSelected)="onFile($event)"
     (maskToggled)="toggleMask()"
     (toolSelected)="onToolSelected($event)"
+    (levelsRequested)="openLevels()"
   />
 
   <div class="workspace">
@@ -40,4 +41,14 @@
   }
 
   <app-editor-status-bar [info]="info()" />
+
+  @if (levelsOpen() && levelsSource(); as src) {
+  <app-levels-dialog
+    [source]="src"
+    [hasAlpha]="hasMask() || (info()?.depth ?? 0) >= 32"
+    (settingsChange)="onLevelsPreview($event)"
+    (applied)="onLevelsApply($event)"
+    (cancelled)="onLevelsCancel()"
+  />
+  }
 </div>

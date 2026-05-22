@@ -30,6 +30,16 @@
     {{ showMasked() ? "Скрыть маскированные" : "Показать маскированные" }}
   </button>
   }
+
+  <button
+    type="button"
+    class="btn"
+    [disabled]="!hasImage()"
+    (click)="levelsRequested.emit()"
+    title="Уровни"
+  >
+    Уровни
+  </button>
   <div class="toolbar-group">
     @for (btn of downloadButtons(); track btn.label) {
     <button

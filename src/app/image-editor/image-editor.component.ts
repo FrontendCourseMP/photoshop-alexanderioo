@@ -19,10 +19,13 @@ import {
   makeChannelThumb,
 } from "../../utilts/channel.utilts";
 import { rgbToLab } from "../../utilts/color.utilts";
+import { applyLevels } from "../../utilts/levels.utilts";
+import { LevelsSettings } from "./models/levels.model";
 import { EditorToolbarComponent } from "./components/editor-toolbar/editor-toolbar.component";
 import { EditorStatusBarComponent } from "./components/editor-status-bar/editor-status-bar.component";
 import { ChannelsPanelComponent } from "./components/channels-panel/channels-panel.component";
 import { ColorPickerInfoComponent } from "./components/color-picker-info/color-picker-info.component";
+import { LevelsDialogComponent } from "./components/levels-dialog/levels-dialog.component";
 
 @Component({
   selector: "app-image-editor",
@@ -32,6 +35,7 @@ import { ColorPickerInfoComponent } from "./components/color-picker-info/color-p
     EditorStatusBarComponent,
     ChannelsPanelComponent,
     ColorPickerInfoComponent,
+    LevelsDialogComponent,
   ],
   templateUrl: "./image-editor.component.html",
   styleUrl: "./image-editor.component.less",
@@ -56,6 +60,11 @@ export class ImageEditorComponent {
   });
   readonly channelThumbs = signal<readonly ChannelThumb[]>([]);
 
+  // === Levels ===
+  readonly levelsOpen = signal(false);
+  readonly levelsSource = signal<ImageData | null>(null);
+  readonly previewImageData = signal<ImageData | null>(null);
+
   private originalImageData: ImageData | null = null;
   private lastGb7Buffer: ArrayBuffer | null = null;
 
@@ -66,7 +75,6 @@ export class ImageEditorComponent {
   ];
 
   constructor() {
-    // Перерисовка GB7 при переключении маски
     effect(() => {
       const show = this.showMasked();
       if (this.lastGb7Buffer) {
@@ -78,11 +86,12 @@ export class ImageEditorComponent {
       }
     });
 
-    // Перерисовка при изменении состояния каналов
     effect(() => {
       const state = this.channelState();
-      if (this.originalImageData) {
-        const masked = applyChannelMask(this.originalImageData, state);
+      const preview = this.previewImageData();
+      const base = preview ?? this.originalImageData;
+      if (base) {
+        const masked = applyChannelMask(base, state);
         this.drawToCanvas(masked);
       }
     });
@@ -91,7 +100,6 @@ export class ImageEditorComponent {
   private get canvas(): HTMLCanvasElement {
     return this.canvasRef().nativeElement;
   }
-
   private get ctx(): CanvasRenderingContext2D {
     const c = this.canvas.getContext("2d");
     if (!c) throw new Error("Canvas 2D context is not available");
@@ -106,6 +114,7 @@ export class ImageEditorComponent {
     this.showMasked.set(false);
     this.channelState.set({ r: true, g: true, b: true, a: true });
     this.pixelInfo.set(null);
+    this.previewImageData.set(null);
 
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (ext === "gb7") this.loadGb7(file);
@@ -135,7 +144,6 @@ export class ImageEditorComponent {
     const rect = this.canvas.getBoundingClientRect();
     const scaleX = this.canvas.width / rect.width;
     const scaleY = this.canvas.height / rect.height;
-
     const x = Math.floor((event.clientX - rect.left) * scaleX);
     const y = Math.floor((event.clientY - rect.top) * scaleY);
 
@@ -149,9 +157,41 @@ export class ImageEditorComponent {
       b = d[i + 2],
       a = d[i + 3];
     const [l, labA, labB] = rgbToLab(r, g, b);
-
     this.pixelInfo.set({ x, y, r, g, b, a, l, labA, labB });
   }
+
+  // === Levels ===
+
+  openLevels(): void {
+    if (!this.originalImageData) return;
+    this.levelsOpen.set(true);
+  }
+
+  onLevelsPreview(settings: LevelsSettings): void {
+    if (!this.originalImageData) return;
+    const result = applyLevels(this.originalImageData, settings);
+    this.previewImageData.set(result);
+  }
+
+  onLevelsApply(settings: LevelsSettings): void {
+    if (!this.originalImageData) {
+      this.levelsOpen.set(false);
+      return;
+    }
+    const result = applyLevels(this.originalImageData, settings);
+    this.originalImageData = result;
+    this.previewImageData.set(null);
+    this.regenerateThumbs(result);
+    this.drawToCanvas(applyChannelMask(result, this.channelState()));
+    this.levelsOpen.set(false);
+  }
+
+  onLevelsCancel(): void {
+    this.previewImageData.set(null);
+    this.levelsOpen.set(false);
+  }
+
+  // === GB7 / image loading ===
 
   private loadGb7(file: File): void {
     const reader = new FileReader();
@@ -198,6 +238,7 @@ export class ImageEditorComponent {
     hasMask: boolean
   ): void {
     this.originalImageData = imageData;
+    this.previewImageData.set(null);
     this.info.set({
       width: imageData.width,
       height: imageData.height,
@@ -205,7 +246,6 @@ export class ImageEditorComponent {
       hasMask,
     });
     this.regenerateThumbs(imageData);
-    // Применяем текущее состояние каналов
     this.drawToCanvas(applyChannelMask(imageData, this.channelState()));
   }
 
