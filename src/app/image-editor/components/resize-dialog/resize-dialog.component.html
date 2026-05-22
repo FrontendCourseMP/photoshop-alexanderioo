@@ -1,0 +1,92 @@
+<app-modal-dialog title="Изменение размера" (closed)="onCancel()">
+  <div class="info">
+    <div>
+      Исходный размер: <b>{{ sourceWidth() }} × {{ sourceHeight() }}</b> ({{
+        originalMP() | number : "1.2-2"
+      }}
+      МП)
+    </div>
+    <div>
+      Новый размер: <b>{{ targetSize().w }} × {{ targetSize().h }}</b> ({{
+        newMP() | number : "1.2-2"
+      }}
+      МП)
+    </div>
+  </div>
+
+  <div class="row">
+    <label>
+      Единицы:
+      <select
+        [value]="unit()"
+        (change)="onUnitChange($any($event.target).value)"
+      >
+        <option value="percent">Проценты</option>
+        <option value="pixels">Пиксели</option>
+      </select>
+    </label>
+
+    <label class="aspect">
+      <input
+        type="checkbox"
+        [checked]="lockAspect()"
+        (change)="lockAspect.set($any($event.target).checked)"
+      />
+      Сохранять пропорции
+    </label>
+  </div>
+
+  <div class="row inputs">
+    <label>
+      Ширина:
+      <input
+        type="number"
+        min="1"
+        [value]="widthValue()"
+        (input)="onWidthChange(+$any($event.target).value)"
+      />
+    </label>
+    <label>
+      Высота:
+      <input
+        type="number"
+        min="1"
+        [value]="heightValue()"
+        (input)="onHeightChange(+$any($event.target).value)"
+      />
+    </label>
+  </div>
+
+  <div class="row interp">
+    <label>
+      Алгоритм:
+      <select
+        [value]="interpolation()"
+        (change)="interpolation.set($any($event.target).value)"
+      >
+        @for (m of methods; track m.id) {
+        <option [value]="m.id">{{ m.label }}</option>
+        }
+      </select>
+    </label>
+    <span class="hint" [attr.title]="currentMethod().description">ⓘ</span>
+  </div>
+
+  <div class="tooltip">{{ currentMethod().description }}</div>
+
+  @if (error(); as e) {
+  <div class="error">{{ e }}</div>
+  }
+
+  <ng-container modalFooter>
+    <button type="button" class="btn" (click)="onCancel()">Отмена</button>
+    <button
+      type="button"
+      class="btn btn-primary"
+      [disabled]="!!error()"
+      (click)="onApply()"
+    >
+      Применить
+    </button>
+  </ng-container>
+</app-modal-dialog>

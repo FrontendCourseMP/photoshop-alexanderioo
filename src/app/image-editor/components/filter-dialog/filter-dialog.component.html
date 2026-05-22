@@ -1,0 +1,87 @@
+<app-modal-dialog
+  title="Фильтрация (свёртка ядром 3×3)"
+  (closed)="cancelled.emit()"
+>
+  <div class="form-row">
+    <label>
+      Преднастройка:
+      <select
+        [value]="presetId()"
+        (change)="onPresetChange($any($event.target).value)"
+      >
+        @for (p of presets; track p.id) {
+        <option [value]="p.id">{{ p.label }}</option>
+        }
+      </select>
+    </label>
+  </div>
+
+  <div class="kernel-grid">
+    @for (v of kernel(); track $index) {
+    <input
+      type="number"
+      step="any"
+      [value]="v"
+      (input)="onCellChange($index, +$any($event.target).value)"
+    />
+    }
+  </div>
+
+  <div class="form-row">
+    <label>
+      Края (padding):
+      <select
+        [value]="edge()"
+        (change)="onEdgeChange($any($event.target).value)"
+      >
+        <option value="black">Чёрный</option>
+        <option value="white">Белый</option>
+        <option value="copy">Копировать крайние</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="form-row channels">
+    <span class="label">Каналы:</span>
+    @for (key of ['r', 'g', 'b', 'a']; track key) {
+    <label
+      class="channel"
+      [class.disabled]="!isChannelAvailable($any(key))"
+      [title]="
+        !isChannelAvailable($any(key)) ? 'Канал отсутствует в изображении' : ''
+      "
+    >
+      <input
+        type="checkbox"
+        [checked]="channels()[$any(key)]"
+        [disabled]="!isChannelAvailable($any(key))"
+        (change)="onChannelToggle($any(key))"
+      />
+      {{ key.toUpperCase() }}
+    </label>
+    }
+  </div>
+
+  <div class="form-row">
+    <label class="checkbox">
+      <input
+        type="checkbox"
+        [checked]="previewEnabled()"
+        (change)="togglePreview($any($event.target).checked)"
+      />
+      Предпросмотр
+    </label>
+  </div>
+
+  @if (errorMsg(); as err) {
+  <p class="error">{{ err }}</p>
+  }
+
+  <ng-container ngProjectAs="[footer]">
+    <button type="button" class="btn" (click)="onReset()">Сброс</button>
+    <button type="button" class="btn" (click)="onCancel()">Отмена</button>
+    <button type="button" class="btn btn-primary" (click)="onApply()">
+      Применить
+    </button>
+  </ng-container>
+</app-modal-dialog>
