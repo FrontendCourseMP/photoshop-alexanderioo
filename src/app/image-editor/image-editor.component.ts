@@ -18,14 +18,24 @@ import {
   applyChannelMask,
   makeChannelThumb,
 } from "../../utilts/channel.utilts";
+import {
+  detectChannels,
+  visibleChannelList,
+} from "../../utilts/channel-detect.utilts";
 import { rgbToLab } from "../../utilts/color.utilts";
 import { applyLevels } from "../../utilts/levels.utilts";
 import { LevelsSettings } from "./models/levels.model";
+import { getInterpolation } from "../../utilts/interpolation.utilts";
+import { MIN_SCALE, MAX_SCALE } from "./models/scale.model";
 import { EditorToolbarComponent } from "./components/editor-toolbar/editor-toolbar.component";
 import { EditorStatusBarComponent } from "./components/editor-status-bar/editor-status-bar.component";
 import { ChannelsPanelComponent } from "./components/channels-panel/channels-panel.component";
 import { ColorPickerInfoComponent } from "./components/color-picker-info/color-picker-info.component";
 import { LevelsDialogComponent } from "./components/levels-dialog/levels-dialog.component";
+import {
+  ResizeDialogComponent,
+  ResizeRequest,
+} from "./components/resize-dialog/resize-dialog.component";
 
 @Component({
   selector: "app-image-editor",
@@ -36,6 +46,7 @@ import { LevelsDialogComponent } from "./components/levels-dialog/levels-dialog.
     ChannelsPanelComponent,
     ColorPickerInfoComponent,
     LevelsDialogComponent,
+    ResizeDialogComponent,
   ],
   templateUrl: "./image-editor.component.html",
   styleUrl: "./image-editor.component.less",
@@ -43,6 +54,8 @@ import { LevelsDialogComponent } from "./components/levels-dialog/levels-dialog.
 export class ImageEditorComponent {
   private readonly canvasRef =
     viewChild.required<ElementRef<HTMLCanvasElement>>("canvas");
+  private readonly canvasAreaRef =
+    viewChild.required<ElementRef<HTMLElement>>("canvasArea");
 
   readonly info = signal<ImageInfo | null>(null);
   readonly hasImage = computed(() => this.info() !== null);
@@ -52,6 +65,17 @@ export class ImageEditorComponent {
   readonly activeTool = signal<Tool>("none");
   readonly pixelInfo = signal<PixelInfo | null>(null);
 
+  readonly availableChannels = signal<readonly ChannelKey[]>([
+    "r",
+    "g",
+    "b",
+    "a",
+  ]);
+  readonly hasAlphaChannel = computed(() =>
+    this.availableChannels().includes("a"),
+  );
+  readonly isGrayscaleImage = signal<boolean>(false);
+
   readonly channelState = signal<ChannelState>({
     r: true,
     g: true,
@@ -60,13 +84,17 @@ export class ImageEditorComponent {
   });
   readonly channelThumbs = signal<readonly ChannelThumb[]>([]);
 
-  // === Levels ===
+  readonly scale = signal<number>(100);
+
   readonly levelsOpen = signal(false);
   readonly levelsSource = signal<ImageData | null>(null);
   readonly previewImageData = signal<ImageData | null>(null);
 
+  readonly resizeOpen = signal(false);
+
   private originalImageData: ImageData | null = null;
   private lastGb7Buffer: ArrayBuffer | null = null;
+  private forceGrayscale: boolean = false;
 
   readonly downloadButtons: readonly DownloadButton[] = [
     { label: "Скачать PNG", action: () => this.savePng() },
@@ -80,9 +108,9 @@ export class ImageEditorComponent {
       if (this.lastGb7Buffer) {
         const { imageData, depth, hasMask } = decodeGB7(
           this.lastGb7Buffer,
-          show
+          show,
         );
-        this.setOriginal(imageData, depth, hasMask);
+        this.setOriginal(imageData, depth, hasMask, true);
       }
     });
 
@@ -91,10 +119,25 @@ export class ImageEditorComponent {
       const preview = this.previewImageData();
       const base = preview ?? this.originalImageData;
       if (base) {
-        const masked = applyChannelMask(base, state);
-        this.drawToCanvas(masked);
+        this.drawToCanvas(applyChannelMask(base, state));
       }
     });
+
+    effect(() => {
+      const pct = this.scale() / 100;
+      if (this.originalImageData) {
+        const c = this.canvas;
+        c.style.width = `${c.width * pct}px`;
+        c.style.height = `${c.height * pct}px`;
+      }
+    });
+  }
+
+  get sourceWidth(): number {
+    return this.originalImageData?.width ?? 0;
+  }
+  get sourceHeight(): number {
+    return this.originalImageData?.height ?? 0;
   }
 
   private get canvas(): HTMLCanvasElement {
@@ -112,7 +155,6 @@ export class ImageEditorComponent {
     if (!file) return;
 
     this.showMasked.set(false);
-    this.channelState.set({ r: true, g: true, b: true, a: true });
     this.pixelInfo.set(null);
     this.previewImageData.set(null);
 
@@ -135,7 +177,12 @@ export class ImageEditorComponent {
   }
 
   onChannelToggle(key: ChannelKey): void {
+    if (!this.availableChannels().includes(key)) return;
     this.channelState.update((s) => ({ ...s, [key]: !s[key] }));
+  }
+
+  onScaleChanged(v: number): void {
+    this.scale.set(Math.max(MIN_SCALE, Math.min(MAX_SCALE, Math.round(v))));
   }
 
   onCanvasClick(event: MouseEvent): void {
@@ -157,23 +204,38 @@ export class ImageEditorComponent {
       b = d[i + 2],
       a = d[i + 3];
     const [l, labA, labB] = rgbToLab(r, g, b);
-    this.pixelInfo.set({ x, y, r, g, b, a, l, labA, labB });
+    this.pixelInfo.set({
+      x,
+      y,
+      r,
+      g,
+      b,
+      a,
+      l,
+      labA,
+      labB,
+      isGrayscale: this.isGrayscaleImage(),
+    });
   }
 
   // === Levels ===
 
   openLevels(): void {
-    if (!this.originalImageData) {
-      return;
-    }
-
+    if (!this.originalImageData) return;
     this.levelsSource.set(this.originalImageData);
     this.levelsOpen.set(true);
   }
 
-  onLevelsPreview(settings: LevelsSettings): void {
-    if (!this.originalImageData) return;
-    const result = applyLevels(this.originalImageData, settings);
+  onLevelsPreview(settings: LevelsSettings | null): void {
+    if (!settings || !this.originalImageData) {
+      this.previewImageData.set(null);
+      return;
+    }
+    const result = applyLevels(
+      this.originalImageData,
+      settings,
+      this.hasAlphaChannel(),
+    );
     this.previewImageData.set(result);
   }
 
@@ -182,10 +244,14 @@ export class ImageEditorComponent {
       this.levelsOpen.set(false);
       return;
     }
-    const result = applyLevels(this.originalImageData, settings);
+    const result = applyLevels(
+      this.originalImageData,
+      settings,
+      this.hasAlphaChannel(),
+    );
     this.originalImageData = result;
     this.previewImageData.set(null);
-    this.regenerateThumbs(result);
+    this.refreshChannelsFromImage(result);
     this.drawToCanvas(applyChannelMask(result, this.channelState()));
     this.levelsOpen.set(false);
   }
@@ -193,6 +259,39 @@ export class ImageEditorComponent {
   onLevelsCancel(): void {
     this.previewImageData.set(null);
     this.levelsOpen.set(false);
+  }
+
+  // === Resize ===
+
+  openResize(): void {
+    if (!this.originalImageData) return;
+    this.resizeOpen.set(true);
+  }
+
+  onResizeApply(req: ResizeRequest): void {
+    if (!this.originalImageData) {
+      this.resizeOpen.set(false);
+      return;
+    }
+    const algo = getInterpolation(req.interpolation);
+    const resized = algo.resample(
+      this.originalImageData,
+      req.width,
+      req.height,
+    );
+    this.originalImageData = resized;
+    this.previewImageData.set(null);
+    this.info.update((i) =>
+      i ? { ...i, width: resized.width, height: resized.height } : i,
+    );
+    this.refreshChannelsFromImage(resized);
+    this.fitToScreen(resized.width, resized.height);
+    this.drawToCanvas(applyChannelMask(resized, this.channelState()));
+    this.resizeOpen.set(false);
+  }
+
+  onResizeCancel(): void {
+    this.resizeOpen.set(false);
   }
 
   // === GB7 / image loading ===
@@ -204,9 +303,9 @@ export class ImageEditorComponent {
       this.lastGb7Buffer = buffer;
       const { imageData, depth, hasMask } = decodeGB7(
         buffer,
-        this.showMasked()
+        this.showMasked(),
       );
-      this.setOriginal(imageData, depth, hasMask);
+      this.setOriginal(imageData, depth, hasMask, true);
     };
     reader.readAsArrayBuffer(file);
   }
@@ -223,7 +322,7 @@ export class ImageEditorComponent {
         .getContext("2d")!
         .getImageData(0, 0, image.width, image.height);
       const depth = this.detectColorDepth(data);
-      this.setOriginal(data, depth, false);
+      this.setOriginal(data, depth, false, false);
       URL.revokeObjectURL(objectUrl);
     };
     image.src = objectUrl;
@@ -239,9 +338,11 @@ export class ImageEditorComponent {
   private setOriginal(
     imageData: ImageData,
     depth: number,
-    hasMask: boolean
+    hasMask: boolean,
+    forceGrayscale: boolean,
   ): void {
     this.originalImageData = imageData;
+    this.forceGrayscale = forceGrayscale;
     this.previewImageData.set(null);
     this.info.set({
       width: imageData.width,
@@ -249,8 +350,49 @@ export class ImageEditorComponent {
       depth,
       hasMask,
     });
-    this.regenerateThumbs(imageData);
+    this.refreshChannelsFromImage(imageData);
+    this.fitToScreen(imageData.width, imageData.height);
     this.drawToCanvas(applyChannelMask(imageData, this.channelState()));
+  }
+
+  private refreshChannelsFromImage(source: ImageData): void {
+    const detected = detectChannels(source, this.forceGrayscale);
+    const list = visibleChannelList(detected);
+    this.availableChannels.set(list);
+    this.isGrayscaleImage.set(detected.grayscale);
+
+    // Сбрасываем состояние каналов под реальные каналы изображения
+    const next: ChannelState = { r: false, g: false, b: false, a: false };
+    for (const k of list) next[k] = true;
+    this.channelState.set(next);
+
+    const labels: Record<ChannelKey, string> = {
+      r: detected.grayscale ? "Gray" : "Red",
+      g: "Green",
+      b: "Blue",
+      a: "Alpha",
+    };
+    const thumbs: ChannelThumb[] = list.map((key) => ({
+      key,
+      label: labels[key],
+      dataUrl: makeChannelThumb(source, key),
+    }));
+    this.channelThumbs.set(thumbs);
+  }
+
+  private fitToScreen(w: number, h: number): void {
+    const area = this.canvasAreaRef()?.nativeElement;
+    if (!area || area.clientWidth === 0 || area.clientHeight === 0) {
+      requestAnimationFrame(() => this.fitToScreen(w, h));
+      return;
+    }
+    const padding = 50;
+    const availW = Math.max(1, area.clientWidth - padding * 2);
+    const availH = Math.max(1, area.clientHeight - padding * 2);
+    const ratio = Math.min(availW / w, availH / h);
+    let pct = Math.round(ratio * 100);
+    pct = Math.max(MIN_SCALE, Math.min(MAX_SCALE, pct));
+    this.scale.set(pct);
   }
 
   private drawToCanvas(imageData: ImageData): void {
@@ -258,16 +400,10 @@ export class ImageEditorComponent {
     this.canvas.height = imageData.height;
     this.ctx.clearRect(0, 0, imageData.width, imageData.height);
     this.ctx.putImageData(imageData, 0, 0);
-  }
 
-  private regenerateThumbs(source: ImageData): void {
-    const thumbs: ChannelThumb[] = [
-      { key: "r", label: "Red", dataUrl: makeChannelThumb(source, "r") },
-      { key: "g", label: "Green", dataUrl: makeChannelThumb(source, "g") },
-      { key: "b", label: "Blue", dataUrl: makeChannelThumb(source, "b") },
-      { key: "a", label: "Alpha", dataUrl: makeChannelThumb(source, "a") },
-    ];
-    this.channelThumbs.set(thumbs);
+    const pct = this.scale() / 100;
+    this.canvas.style.width = `${imageData.width * pct}px`;
+    this.canvas.style.height = `${imageData.height * pct}px`;
   }
 
   private savePng(): void {

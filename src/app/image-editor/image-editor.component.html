@@ -9,17 +9,19 @@
     (maskToggled)="toggleMask()"
     (toolSelected)="onToolSelected($event)"
     (levelsRequested)="openLevels()"
+    (resizeRequested)="openResize()"
   />
 
   <div class="workspace">
     <main
+      #canvasArea
       class="canvas-area"
       [class.eyedropper]="activeTool() === 'eyedropper'"
     >
       @if (!hasImage()) {
-      <div class="empty">
-        <p>Загрузите изображение в формате PNG, JPG или GB7</p>
-      </div>
+        <div class="empty">
+          <p>Загрузите изображение в формате PNG, JPG или GB7</p>
+        </div>
       }
 
       <div class="canvas-wrapper" [class.hidden]="!hasImage()">
@@ -28,27 +30,41 @@
     </main>
 
     @if (hasImage()) {
-    <app-channels-panel
-      [thumbs]="channelThumbs()"
-      [state]="channelState()"
-      (channelToggled)="onChannelToggle($event)"
-    />
+      <app-channels-panel
+        [thumbs]="channelThumbs()"
+        [state]="channelState()"
+        (channelToggled)="onChannelToggle($event)"
+      />
     }
   </div>
 
-  @if (activeTool() === 'eyedropper' && pixelInfo()) {
-  <app-color-picker-info [pixel]="pixelInfo()" />
+  @if (activeTool() === "eyedropper" && pixelInfo()) {
+    <app-color-picker-info [pixel]="pixelInfo()" />
   }
 
-  <app-editor-status-bar [info]="info()" />
+  <app-editor-status-bar
+    [info]="info()"
+    [scale]="scale()"
+    (scaleChanged)="onScaleChanged($event)"
+  />
 
   @if (levelsOpen() && levelsSource(); as src) {
-  <app-levels-dialog
-    [source]="src"
-    [hasAlpha]="hasMask() || (info()?.depth ?? 0) >= 32"
-    (settingsChange)="onLevelsPreview($event)"
-    (applied)="onLevelsApply($event)"
-    (cancelled)="onLevelsCancel()"
-  />
+    <app-levels-dialog
+      [source]="src"
+      [hasAlpha]="hasAlphaChannel()"
+      [availableChannels]="availableChannels()"
+      (settingsChange)="onLevelsPreview($event)"
+      (applied)="onLevelsApply($event)"
+      (cancelled)="onLevelsCancel()"
+    />
+  }
+
+  @if (resizeOpen()) {
+    <app-resize-dialog
+      [sourceWidth]="sourceWidth"
+      [sourceHeight]="sourceHeight"
+      (applied)="onResizeApply($event)"
+      (cancelled)="onResizeCancel()"
+    />
   }
 </div>

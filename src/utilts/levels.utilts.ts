@@ -17,7 +17,7 @@ export function computeLuma(r: number, g: number, b: number): number {
  */
 export function computeHistogram(
   source: ImageData,
-  channel: LevelsChannel
+  channel: LevelsChannel,
 ): Uint32Array {
   const hist = new Uint32Array(256);
   const data = source.data;
@@ -64,8 +64,6 @@ export function buildLut(settings: LevelsChannelSettings): Uint8ClampedArray {
 
 /**
  * Композиция master + per-channel LUT в финальные LUT для R, G, B, A.
- * Сначала применяется master к каждому из R/G/B, затем — канальный LUT.
- * Alpha обрабатывается только своим каналом (master её не трогает).
  */
 export function buildComposedLuts(settings: LevelsSettings): {
   r: Uint8ClampedArray;
@@ -94,16 +92,18 @@ export function buildComposedLuts(settings: LevelsSettings): {
 
 /**
  * Применяет уровни к ImageData и возвращает НОВЫЙ ImageData.
+ * Если у изображения нет альфы (hasAlpha=false) — alpha не трогается.
  */
 export function applyLevels(
   source: ImageData,
-  settings: LevelsSettings
+  settings: LevelsSettings,
+  hasAlpha: boolean = true,
 ): ImageData {
   const { r: lutR, g: lutG, b: lutB, a: lutA } = buildComposedLuts(settings);
   const out = new ImageData(
     new Uint8ClampedArray(source.data),
     source.width,
-    source.height
+    source.height,
   );
   const d = out.data;
 
@@ -111,7 +111,9 @@ export function applyLevels(
     d[i] = lutR[d[i]];
     d[i + 1] = lutG[d[i + 1]];
     d[i + 2] = lutB[d[i + 2]];
-    d[i + 3] = lutA[d[i + 3]];
+    if (hasAlpha) {
+      d[i + 3] = lutA[d[i + 3]];
+    }
   }
   return out;
 }

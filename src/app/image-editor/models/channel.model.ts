@@ -25,4 +25,5 @@ export interface PixelInfo {
   l: number;
   labA: number;
   labB: number;
+  isGrayscale: boolean;
 }
