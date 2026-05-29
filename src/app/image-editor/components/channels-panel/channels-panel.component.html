@@ -2,14 +2,21 @@
   <h3 class="title">Каналы</h3>
   <div class="list">
     @for (t of thumbs(); track t.key) {
-    <button
-      type="button"
-      class="channel"
-      [class.active]="isActive(t.key)"
-      (click)="onToggle(t.key)"
-    >
-      <img [src]="t.dataUrl" [alt]="t.label" /> <span>{{ t.label }}</span>
-    </button>
+      <button
+        type="button"
+        class="channel"
+        [class.active]="isActive(t.key)"
+        (click)="onToggle(t.key)"
+        [title]="
+          isActive(t.key) ? 'Канал виден — выключить' : 'Канал скрыт — включить'
+        "
+      >
+        <span class="eye">{{ isActive(t.key) ? "👁" : "—" }}</span>
+        <span class="thumb-box">
+          <img [src]="t.dataUrl" [alt]="t.label" />
+        </span>
+        <span class="label">{{ t.label }}</span>
+      </button>
     }
   </div>
 </aside>
