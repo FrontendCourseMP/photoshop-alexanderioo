@@ -18,4 +18,5 @@ export class EditorToolbarComponent {
   readonly maskToggled = output<void>();
   readonly toolSelected = output<Tool>();
   readonly levelsRequested = output<void>();
+  readonly resizeRequested = output<void>();
 }

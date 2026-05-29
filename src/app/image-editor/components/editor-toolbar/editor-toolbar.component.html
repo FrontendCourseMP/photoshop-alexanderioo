@@ -8,6 +8,7 @@
       hidden
     />
   </label>
+
   <button
     type="button"
     class="btn"
@@ -20,15 +21,16 @@
   >
     🎯 Пипетка
   </button>
+
   @if (hasMask()) {
-  <button
-    type="button"
-    class="btn"
-    [class.active]="showMasked()"
-    (click)="maskToggled.emit()"
-  >
-    {{ showMasked() ? "Скрыть маскированные" : "Показать маскированные" }}
-  </button>
+    <button
+      type="button"
+      class="btn"
+      [class.active]="showMasked()"
+      (click)="maskToggled.emit()"
+    >
+      {{ showMasked() ? "Скрыть маскированные" : "Показать маскированные" }}
+    </button>
   }
 
   <button
@@ -40,16 +42,27 @@
   >
     Уровни
   </button>
+
+  <button
+    type="button"
+    class="btn"
+    [disabled]="!hasImage()"
+    (click)="resizeRequested.emit()"
+    title="Изменить размер"
+  >
+    📐 Размер
+  </button>
+
   <div class="toolbar-group">
     @for (btn of downloadButtons(); track btn.label) {
-    <button
-      type="button"
-      class="btn"
-      [disabled]="!hasImage()"
-      (click)="btn.action()"
-    >
-      {{ btn.label }}
-    </button>
+      <button
+        type="button"
+        class="btn"
+        [disabled]="!hasImage()"
+        (click)="btn.action()"
+      >
+        {{ btn.label }}
+      </button>
     }
   </div>
 </header>
