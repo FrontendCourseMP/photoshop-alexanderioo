@@ -18,6 +18,7 @@ import {
   createDefaultLevelsSettings,
 } from "../../models/levels.model";
 import { computeHistogram } from "../../../../utilts/levels.utilts";
+import { ChannelKey } from "../../models/channel.model";
 
 @Component({
   selector: "app-levels-dialog",
@@ -29,8 +30,14 @@ import { computeHistogram } from "../../../../utilts/levels.utilts";
 export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
   readonly source = input.required<ImageData | null>();
   readonly hasAlpha = input<boolean>(true);
+  readonly availableChannels = input<readonly ChannelKey[]>([
+    "r",
+    "g",
+    "b",
+    "a",
+  ]);
 
-  readonly settingsChange = output<LevelsSettings>();
+  readonly settingsChange = output<LevelsSettings | null>();
   readonly applied = output<LevelsSettings>();
   readonly cancelled = output<void>();
 
@@ -48,57 +55,71 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
 
   readonly channels = computed<{ value: LevelsChannel; label: string }[]>(
     () => {
-      const base: { value: LevelsChannel; label: string }[] = [
-        { value: "master", label: "RGB (Master)" },
-        { value: "r", label: "Red" },
-        { value: "g", label: "Green" },
-        { value: "b", label: "Blue" },
-      ];
-      if (this.hasAlpha()) base.push({ value: "a", label: "Alpha" });
-      return base;
-    }
+      const avail = this.availableChannels();
+      const hasR = avail.includes("r");
+      const hasG = avail.includes("g");
+      const hasB = avail.includes("b");
+      const hasA = avail.includes("a") && this.hasAlpha();
+      const isGray = hasR && !hasG && !hasB;
+
+      const list: { value: LevelsChannel; label: string }[] = [];
+
+      if (isGray) {
+        list.push({ value: "master", label: "Gray" });
+      } else if (hasR && hasG && hasB) {
+        list.push({ value: "master", label: "RGB (Master)" });
+        list.push({ value: "r", label: "Red" });
+        list.push({ value: "g", label: "Green" });
+        list.push({ value: "b", label: "Blue" });
+      }
+
+      if (hasA) {
+        list.push({ value: "a", label: "Alpha" });
+      }
+
+      return list;
+    },
   );
 
   private rafId: number | null = null;
 
   constructor() {
-    // Рисуем гистограмму при изменении входа/канала/шкалы
     effect(() => {
       this.source();
       this.channel();
       this.scale();
-      this.current(); // чтобы перерисовывать маркеры
-      queueMicrotask(() => this.drawHistogram());
+      this.current();
+      // двойной фолбэк: rAF + setTimeout(0)
+      requestAnimationFrame(() => this.drawHistogram());
+      setTimeout(() => this.drawHistogram(), 0);
     });
 
-    // Эмитим изменения при preview
     effect(() => {
-      const s = this.settings();
-      if (this.preview()) {
-        this.emitSettingsThrottled(s);
+      const list = this.channels();
+      if (!list.some((c) => c.value === this.channel()) && list.length > 0) {
+        this.channel.set(list[0].value);
       }
     });
 
-    // При выключении превью — сбрасываем картинку до оригинала
     effect(() => {
-      if (!this.preview()) {
-        this.settingsChange.emit(createDefaultLevelsSettings());
+      const s = this.settings();
+      const enabled = this.preview();
+      if (enabled) {
+        this.emitSettingsThrottled(s);
       } else {
-        this.emitSettingsThrottled(this.settings());
+        this.settingsChange.emit(null);
       }
     });
   }
 
   ngAfterViewInit(): void {
-    this.dialogRef().nativeElement.showModal();
-    this.drawHistogram();
+    this.dialogRef().nativeElement.show(); // НЕ showModal, чтобы не блокировать canvas
+    requestAnimationFrame(() => this.drawHistogram());
   }
 
   ngOnDestroy(): void {
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
   }
-
-  // === Управление каналом/шкалой/превью ===
 
   onChannelChange(value: string): void {
     this.channel.set(value as LevelsChannel);
@@ -112,21 +133,19 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
     this.preview.set(value);
   }
 
-  // === Слайдеры ===
-
   onBlack(v: number): void {
     this.updateCurrent((c) => {
-      const black = Math.min(254, Math.max(0, v));
-      const white = Math.max(black + 1, c.whitePoint);
-      return { ...c, blackPoint: black, whitePoint: white };
+      const maxBlack = c.whitePoint - 1;
+      const black = Math.min(maxBlack, Math.max(0, v));
+      return { ...c, blackPoint: black };
     });
   }
 
   onWhite(v: number): void {
     this.updateCurrent((c) => {
-      const white = Math.max(1, Math.min(255, v));
-      const black = Math.min(white - 1, c.blackPoint);
-      return { ...c, whitePoint: white, blackPoint: black };
+      const minWhite = c.blackPoint + 1;
+      const white = Math.max(minWhite, Math.min(255, v));
+      return { ...c, whitePoint: white };
     });
   }
 
@@ -136,20 +155,18 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
   }
 
   private updateCurrent(
-    fn: (c: LevelsSettings[LevelsChannel]) => LevelsSettings[LevelsChannel]
+    fn: (c: LevelsSettings[LevelsChannel]) => LevelsSettings[LevelsChannel],
   ): void {
     const ch = this.channel();
     this.settings.update((s) => ({ ...s, [ch]: fn(s[ch]) }));
   }
-
-  // === Кнопки ===
 
   onReset(): void {
     this.settings.set(createDefaultLevelsSettings());
   }
 
   onCancel(): void {
-    this.settingsChange.emit(createDefaultLevelsSettings());
+    this.settingsChange.emit(null);
     this.dialogRef().nativeElement.close();
     this.cancelled.emit();
   }
@@ -159,8 +176,6 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
     this.dialogRef().nativeElement.close();
     this.applied.emit(s);
   }
-
-  // === Гистограмма ===
 
   private drawHistogram(): void {
     const src = this.source();
@@ -174,7 +189,6 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
     const H = canvas.height;
     ctx.clearRect(0, 0, W, H);
 
-    // Фон
     ctx.fillStyle = "#1e1e1e";
     ctx.fillRect(0, 0, W, H);
 
@@ -202,12 +216,10 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
       ctx.fillRect(i * barW, H - h, Math.max(1, barW), h);
     }
 
-    // Маркеры (визуальные риски на нижней полосе)
     const c = this.current();
     this.drawMarker(ctx, W, H, c.blackPoint / 255, "#000", "#fff");
     this.drawMarker(ctx, W, H, c.whitePoint / 255, "#fff", "#000");
 
-    // Маркер гаммы — между blackPoint и whitePoint
     const gammaPos =
       c.blackPoint / 255 +
       ((c.whitePoint - c.blackPoint) / 255) * gammaToSliderPos(c.gamma);
@@ -220,7 +232,7 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
     H: number,
     pos: number,
     fill: string,
-    stroke: string
+    stroke: string,
   ): void {
     const x = pos * W;
     ctx.beginPath();
@@ -244,13 +256,6 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
   }
 }
 
-/**
-  
-  * Позиция маркера гаммы относительно [black; white] для визуализации.
-  * gamma=1 → 0.5; gamma>1 (затемнение) → < 0.5; gamma<1 → > 0.5.
-    */
 function gammaToSliderPos(gamma: number): number {
-  // Стандартная формула Photoshop: pos = 1 - log(gamma)/log(9.99) * 0.5 ...
-  // Используем простую: pos = 0.5 + log(1/gamma) / (2*log(9.9))
   return 0.5 + Math.log(1 / gamma) / (2 * Math.log(9.9));
 }

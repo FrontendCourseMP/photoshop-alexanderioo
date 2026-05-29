@@ -12,7 +12,7 @@
           (change)="onChannelChange($any($event.target).value)"
         >
           @for (c of channels(); track c.value) {
-          <option [value]="c.value">{{ c.label }}</option>
+            <option [value]="c.value">{{ c.label }}</option>
           }
         </select>
       </label>
@@ -30,7 +30,24 @@
     </div>
 
     <div class="hist-wrapper">
-      <canvas #histCanvas width="512" height="180"></canvas>
+      <canvas #histCanvas width="512" height="140"></canvas>
+      <div class="markers-legend">
+        <span
+          ><i
+            class="swatch"
+            style="background: #000; border: 1px solid #fff"
+          ></i>
+          Чёрная точка</span
+        >
+        <span><i class="swatch" style="background: #888"></i> Гамма</span>
+        <span
+          ><i
+            class="swatch"
+            style="background: #fff; border: 1px solid #000"
+          ></i>
+          Белая точка</span
+        >
+      </div>
     </div>
 
     <div class="sliders">
