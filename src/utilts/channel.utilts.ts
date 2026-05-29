@@ -3,29 +3,42 @@ import {
   ChannelState,
 } from "../app/image-editor/models/channel.model";
 
-const THUMB_SIZE = 64;
+const THUMB_MAX = 64;
 
 /**
  * Возвращает миниатюру одного канала в градациях серого.
+ * Размер вписывается в THUMB_MAX × THUMB_MAX с сохранением пропорций.
  */
 export function makeChannelThumb(
   source: ImageData,
   channel: ChannelKey,
-  size: number = THUMB_SIZE
+  maxSize: number = THUMB_MAX,
 ): string {
+  // Сохраняем пропорции
+  const ratio = source.width / source.height;
+  let w: number, h: number;
+  if (ratio >= 1) {
+    w = maxSize;
+    h = Math.max(1, Math.round(maxSize / ratio));
+  } else {
+    h = maxSize;
+    w = Math.max(1, Math.round(maxSize * ratio));
+  }
+
   const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = w;
+  canvas.height = h;
   const ctx = canvas.getContext("2d")!;
 
-  // Сначала уменьшим исходник
+  // Сначала ставим исходник на временный canvas
   const tmp = document.createElement("canvas");
   tmp.width = source.width;
   tmp.height = source.height;
   tmp.getContext("2d")!.putImageData(source, 0, 0);
 
-  ctx.drawImage(tmp, 0, 0, size, size);
-  const imageData = ctx.getImageData(0, 0, size, size);
+  // Ужимаем с сохранением соотношения
+  ctx.drawImage(tmp, 0, 0, w, h);
+  const imageData = ctx.getImageData(0, 0, w, h);
   const data = imageData.data;
 
   const offset = { r: 0, g: 1, b: 2, a: 3 }[channel];
@@ -47,16 +60,15 @@ export function makeChannelThumb(
  */
 export function applyChannelMask(
   source: ImageData,
-  state: ChannelState
+  state: ChannelState,
 ): ImageData {
   const out = new ImageData(
     new Uint8ClampedArray(source.data),
     source.width,
-    source.height
+    source.height,
   );
   const data = out.data;
 
-  // Если оставлен ТОЛЬКО альфа-канал → показываем маску прозрачности
   const onlyAlpha = !state.r && !state.g && !state.b && state.a;
 
   for (let i = 0; i < data.length; i += 4) {
@@ -68,7 +80,6 @@ export function applyChannelMask(
       data[i + 3] = 255;
       continue;
     }
-
     if (!state.r) data[i] = 0;
     if (!state.g) data[i + 1] = 0;
     if (!state.b) data[i + 2] = 0;

@@ -4,25 +4,34 @@ export interface DetectedChannels {
   r: boolean;
   g: boolean;
   b: boolean;
-  a: boolean; // true только если есть пиксели с alpha < 255
-  grayscale: boolean; // R===G===B во всех пикселях
+  a: boolean;
+  grayscale: boolean;
 }
 
 /**
  * Анализирует реальные каналы изображения.
  * - alpha считается "присутствующим", если есть хотя бы один прозрачный пиксель
  * - grayscale = картинка является монохромной (R==G==B)
+ *
+ * forceGrayscale=true — для форматов где grayscale известен из заголовка (GB7)
  */
-export function detectChannels(src: ImageData): DetectedChannels {
+export function detectChannels(
+  src: ImageData,
+  forceGrayscale: boolean = false,
+): DetectedChannels {
   const d = src.data;
   let hasAlpha = false;
   let isGrayscale = true;
 
   for (let i = 0; i < d.length; i += 4) {
     if (d[i + 3] < 255) hasAlpha = true;
-    if (d[i] !== d[i + 1] || d[i + 1] !== d[i + 2]) isGrayscale = false;
-    if (hasAlpha && !isGrayscale) break;
+    if (!forceGrayscale && (d[i] !== d[i + 1] || d[i + 1] !== d[i + 2])) {
+      isGrayscale = false;
+    }
+    if (hasAlpha && !isGrayscale && !forceGrayscale) break;
   }
+
+  if (forceGrayscale) isGrayscale = true;
 
   return {
     r: true,
