@@ -7,11 +7,28 @@
     >Высота: <b>{{ i.height }}</b> px</span
   >
   <span
-    >Глубина цвета: <b>{{ i.depth }}</b> бит</span
+    >Глубина: <b>{{ i.depth }}</b> бит</span
   >
-  @if (i.hasMask) {
-  <span>Маска: <b>есть</b></span>
-  } } @else {
+  @if (i.hasMask) { <span>Маска: <b>есть</b></span> }
+
+  <span class="scale-group">
+    Масштаб:
+    <input
+      type="range"
+      [min]="min"
+      [max]="max"
+      step="1"
+      [value]="scale()"
+      (input)="onRange(+$any($event.target).value)"
+    />
+    <select [value]="scale()" (change)="onPreset($any($event.target).value)">
+      @for (p of presets; track p) {
+      <option [value]="p">{{ p }}%</option>
+      }
+    </select>
+    <b>{{ scale() }}%</b>
+  </span>
+  } @else {
   <span>Изображение не загружено</span>
   }
 </footer>
