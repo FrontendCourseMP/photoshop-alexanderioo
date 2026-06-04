@@ -50,7 +50,17 @@
     (click)="resizeRequested.emit()"
     title="Изменить размер"
   >
-    📐 Размер
+    Размер
+  </button>
+
+  <button
+    type="button"
+    class="btn"
+    [disabled]="!hasImage()"
+    (click)="convolutionRequested.emit()"
+    title="Фильтры (свёртка)"
+  >
+    Фильтры
   </button>
 
   <div class="toolbar-group">

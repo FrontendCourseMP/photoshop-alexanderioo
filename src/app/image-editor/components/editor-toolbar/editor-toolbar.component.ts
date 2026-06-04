@@ -19,4 +19,5 @@ export class EditorToolbarComponent {
   readonly toolSelected = output<Tool>();
   readonly levelsRequested = output<void>();
   readonly resizeRequested = output<void>();
+  readonly convolutionRequested = output<void>();
 }

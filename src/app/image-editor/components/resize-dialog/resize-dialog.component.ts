@@ -113,10 +113,11 @@ export class ResizeDialogComponent {
   onWidthChange(v: number): void {
     this.widthValue.set(v);
     if (this.lockAspect()) {
-      const ratio = this.sourceHeight() / this.sourceWidth();
       if (this.unit() === "percent") {
-        this.heightValue.set(v);
+        const ratio = this.sourceHeight() / this.sourceWidth();
+        this.heightValue.set(Math.round(v * ratio));
       } else {
+        const ratio = this.sourceHeight() / this.sourceWidth();
         this.heightValue.set(Math.max(1, Math.round(v * ratio)));
       }
     }
@@ -125,10 +126,11 @@ export class ResizeDialogComponent {
   onHeightChange(v: number): void {
     this.heightValue.set(v);
     if (this.lockAspect()) {
-      const ratio = this.sourceWidth() / this.sourceHeight();
       if (this.unit() === "percent") {
-        this.widthValue.set(v);
+        const ratio = this.sourceWidth() / this.sourceHeight();
+        this.widthValue.set(Math.round(v * ratio));
       } else {
+        const ratio = this.sourceWidth() / this.sourceHeight();
         this.widthValue.set(Math.max(1, Math.round(v * ratio)));
       }
     }

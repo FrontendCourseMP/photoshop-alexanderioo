@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   OnDestroy,
+  afterNextRender,
   computed,
   effect,
   input,
@@ -78,7 +79,7 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
       }
 
       return list;
-    },
+    }
   );
 
   private rafId: number | null = null;
@@ -89,7 +90,6 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
       this.channel();
       this.scale();
       this.current();
-      // двойной фолбэк: rAF + setTimeout(0)
       requestAnimationFrame(() => this.drawHistogram());
       setTimeout(() => this.drawHistogram(), 0);
     });
@@ -110,11 +110,22 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
         this.settingsChange.emit(null);
       }
     });
+
+    afterNextRender(() => {
+      this.drawHistogram();
+      requestAnimationFrame(() => {
+        this.drawHistogram();
+        requestAnimationFrame(() => this.drawHistogram());
+      });
+    });
   }
 
   ngAfterViewInit(): void {
-    this.dialogRef().nativeElement.show(); // НЕ showModal, чтобы не блокировать canvas
+    this.dialogRef().nativeElement.show();
+
     requestAnimationFrame(() => this.drawHistogram());
+    setTimeout(() => this.drawHistogram(), 50);
+    setTimeout(() => this.drawHistogram(), 150);
   }
 
   ngOnDestroy(): void {
@@ -155,7 +166,7 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
   }
 
   private updateCurrent(
-    fn: (c: LevelsSettings[LevelsChannel]) => LevelsSettings[LevelsChannel],
+    fn: (c: LevelsSettings[LevelsChannel]) => LevelsSettings[LevelsChannel]
   ): void {
     const ch = this.channel();
     this.settings.update((s) => ({ ...s, [ch]: fn(s[ch]) }));
@@ -181,6 +192,8 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
     const src = this.source();
     const canvas = this.histCanvasRef()?.nativeElement;
     if (!canvas || !src) return;
+
+    if (canvas.width === 0 || canvas.height === 0) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -232,7 +245,7 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
     H: number,
     pos: number,
     fill: string,
-    stroke: string,
+    stroke: string
   ): void {
     const x = pos * W;
     ctx.beginPath();

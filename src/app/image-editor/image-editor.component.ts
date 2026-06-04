@@ -25,7 +25,11 @@ import {
 import { rgbToLab } from "../../utilts/color.utilts";
 import { applyLevels } from "../../utilts/levels.utilts";
 import { LevelsSettings } from "./models/levels.model";
-import { getInterpolation } from "../../utilts/interpolation.utilts";
+import {
+  getInterpolation,
+  InterpolationId,
+  DEFAULT_INTERPOLATION,
+} from "../../utilts/interpolation.utilts";
 import { MIN_SCALE, MAX_SCALE } from "./models/scale.model";
 import { EditorToolbarComponent } from "./components/editor-toolbar/editor-toolbar.component";
 import { EditorStatusBarComponent } from "./components/editor-status-bar/editor-status-bar.component";
@@ -36,6 +40,9 @@ import {
   ResizeDialogComponent,
   ResizeRequest,
 } from "./components/resize-dialog/resize-dialog.component";
+import { ConvolutionDialogComponent } from "./components/convolution-dialog/convolution-dialog.component";
+import { ConvolutionSettings } from "./models/convolution.model";
+import { applyConvolutionAsync } from "../../utilts/convolution.utilts";
 
 @Component({
   selector: "app-image-editor",
@@ -47,6 +54,7 @@ import {
     ColorPickerInfoComponent,
     LevelsDialogComponent,
     ResizeDialogComponent,
+    ConvolutionDialogComponent,
   ],
   templateUrl: "./image-editor.component.html",
   styleUrl: "./image-editor.component.less",
@@ -62,6 +70,11 @@ export class ImageEditorComponent {
   readonly hasMask = computed(() => this.info()?.hasMask ?? false);
   readonly showMasked = signal(false);
 
+  readonly currentInterpolation = signal<InterpolationId>(
+    DEFAULT_INTERPOLATION
+  );
+  private scaleDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
   readonly activeTool = signal<Tool>("none");
   readonly pixelInfo = signal<PixelInfo | null>(null);
 
@@ -72,7 +85,7 @@ export class ImageEditorComponent {
     "a",
   ]);
   readonly hasAlphaChannel = computed(() =>
-    this.availableChannels().includes("a"),
+    this.availableChannels().includes("a")
   );
   readonly isGrayscaleImage = signal<boolean>(false);
 
@@ -92,6 +105,10 @@ export class ImageEditorComponent {
 
   readonly resizeOpen = signal(false);
 
+  readonly convolutionOpen = signal(false);
+  readonly convolutionProcessing = signal(false);
+  private convPreviewToken = 0;
+
   private originalImageData: ImageData | null = null;
   private lastGb7Buffer: ArrayBuffer | null = null;
   private forceGrayscale: boolean = false;
@@ -108,28 +125,24 @@ export class ImageEditorComponent {
       if (this.lastGb7Buffer) {
         const { imageData, depth, hasMask } = decodeGB7(
           this.lastGb7Buffer,
-          show,
+          show
         );
         this.setOriginal(imageData, depth, hasMask, true);
       }
     });
 
+    // При смене каналов или превью — перерисовать (мгновенно)
     effect(() => {
-      const state = this.channelState();
-      const preview = this.previewImageData();
-      const base = preview ?? this.originalImageData;
-      if (base) {
-        this.drawToCanvas(applyChannelMask(base, state));
-      }
+      this.channelState();
+      this.previewImageData();
+      this.resampleAndDraw();
     });
 
+    // При смене масштаба или алгоритма — ресэмплинг с debounce
     effect(() => {
-      const pct = this.scale() / 100;
-      if (this.originalImageData) {
-        const c = this.canvas;
-        c.style.width = `${c.width * pct}px`;
-        c.style.height = `${c.height * pct}px`;
-      }
+      this.scale();
+      this.currentInterpolation();
+      this.scheduleResampleAndDraw();
     });
   }
 
@@ -189,16 +202,18 @@ export class ImageEditorComponent {
     if (this.activeTool() !== "eyedropper" || !this.originalImageData) return;
 
     const rect = this.canvas.getBoundingClientRect();
-    const scaleX = this.canvas.width / rect.width;
-    const scaleY = this.canvas.height / rect.height;
+    // ВАЖНО: canvas теперь содержит уже масштабированное изображение,
+    // поэтому пересчёт координат идёт через размеры исходника
+    const src = this.originalImageData;
+    const scaleX = src.width / rect.width;
+    const scaleY = src.height / rect.height;
     const x = Math.floor((event.clientX - rect.left) * scaleX);
     const y = Math.floor((event.clientY - rect.top) * scaleY);
 
-    if (x < 0 || y < 0 || x >= this.canvas.width || y >= this.canvas.height)
-      return;
+    if (x < 0 || y < 0 || x >= src.width || y >= src.height) return;
 
-    const i = (y * this.canvas.width + x) * 4;
-    const d = this.originalImageData.data;
+    const i = (y * src.width + x) * 4;
+    const d = src.data;
     const r = d[i],
       g = d[i + 1],
       b = d[i + 2],
@@ -234,7 +249,7 @@ export class ImageEditorComponent {
     const result = applyLevels(
       this.originalImageData,
       settings,
-      this.hasAlphaChannel(),
+      this.hasAlphaChannel()
     );
     this.previewImageData.set(result);
   }
@@ -247,12 +262,12 @@ export class ImageEditorComponent {
     const result = applyLevels(
       this.originalImageData,
       settings,
-      this.hasAlphaChannel(),
+      this.hasAlphaChannel()
     );
     this.originalImageData = result;
     this.previewImageData.set(null);
     this.refreshChannelsFromImage(result);
-    this.drawToCanvas(applyChannelMask(result, this.channelState()));
+    this.resampleAndDraw();
     this.levelsOpen.set(false);
   }
 
@@ -277,16 +292,16 @@ export class ImageEditorComponent {
     const resized = algo.resample(
       this.originalImageData,
       req.width,
-      req.height,
+      req.height
     );
     this.originalImageData = resized;
     this.previewImageData.set(null);
     this.info.update((i) =>
-      i ? { ...i, width: resized.width, height: resized.height } : i,
+      i ? { ...i, width: resized.width, height: resized.height } : i
     );
     this.refreshChannelsFromImage(resized);
     this.fitToScreen(resized.width, resized.height);
-    this.drawToCanvas(applyChannelMask(resized, this.channelState()));
+    this.resampleAndDraw();
     this.resizeOpen.set(false);
   }
 
@@ -303,7 +318,7 @@ export class ImageEditorComponent {
       this.lastGb7Buffer = buffer;
       const { imageData, depth, hasMask } = decodeGB7(
         buffer,
-        this.showMasked(),
+        this.showMasked()
       );
       this.setOriginal(imageData, depth, hasMask, true);
     };
@@ -339,7 +354,7 @@ export class ImageEditorComponent {
     imageData: ImageData,
     depth: number,
     hasMask: boolean,
-    forceGrayscale: boolean,
+    forceGrayscale: boolean
   ): void {
     this.originalImageData = imageData;
     this.forceGrayscale = forceGrayscale;
@@ -352,7 +367,7 @@ export class ImageEditorComponent {
     });
     this.refreshChannelsFromImage(imageData);
     this.fitToScreen(imageData.width, imageData.height);
-    this.drawToCanvas(applyChannelMask(imageData, this.channelState()));
+    this.resampleAndDraw();
   }
 
   private refreshChannelsFromImage(source: ImageData): void {
@@ -361,7 +376,6 @@ export class ImageEditorComponent {
     this.availableChannels.set(list);
     this.isGrayscaleImage.set(detected.grayscale);
 
-    // Сбрасываем состояние каналов под реальные каналы изображения
     const next: ChannelState = { r: false, g: false, b: false, a: false };
     for (const k of list) next[k] = true;
     this.channelState.set(next);
@@ -395,15 +409,69 @@ export class ImageEditorComponent {
     this.scale.set(pct);
   }
 
+  /**
+   * Главный метод отрисовки:
+   * 1) Берёт текущий ImageData (preview или original)
+   * 2) Ресэмплит его по текущему масштабу через выбранный алгоритм интерполяции
+   * 3) Применяет маску каналов
+   * 4) Рисует в canvas
+   */
+  private resampleAndDraw(): void {
+    const orig = this.originalImageData;
+    if (!orig) return;
+
+    const src = this.previewImageData() ?? orig;
+    const pct = this.scale() / 100;
+
+    // ✅ Размеры считаем ТОЛЬКО от оригинала — пропорции сохраняются
+    const dstW = Math.max(1, Math.round(orig.width * pct));
+    const dstH = Math.max(1, Math.round(orig.height * pct));
+
+    const scaled =
+      src.width === dstW && src.height === dstH
+        ? src
+        : getInterpolation(this.currentInterpolation()).resample(
+            src,
+            dstW,
+            dstH
+          );
+
+    const masked = applyChannelMask(
+      scaled,
+      this.channelState(),
+      this.isGrayscaleImage()
+    );
+    this.drawToCanvas(masked);
+  }
+
+  /**
+   * То же самое, но с debounce — для движения ползунка масштаба.
+   * Избегает дикого CPU-расхода при перетаскивании.
+   */
+  private scheduleResampleAndDraw(delay = 120): void {
+    if (this.scaleDebounceTimer !== null) clearTimeout(this.scaleDebounceTimer);
+    this.scaleDebounceTimer = setTimeout(() => {
+      this.scaleDebounceTimer = null;
+      this.resampleAndDraw();
+    }, delay);
+  }
+
   private drawToCanvas(imageData: ImageData): void {
-    this.canvas.width = imageData.width;
-    this.canvas.height = imageData.height;
-    this.ctx.clearRect(0, 0, imageData.width, imageData.height);
+    const canvas = this.canvas;
+
+    if (
+      canvas.width !== imageData.width ||
+      canvas.height !== imageData.height
+    ) {
+      canvas.width = imageData.width;
+      canvas.height = imageData.height;
+    }
+
     this.ctx.putImageData(imageData, 0, 0);
 
-    const pct = this.scale() / 100;
-    this.canvas.style.width = `${imageData.width * pct}px`;
-    this.canvas.style.height = `${imageData.height * pct}px`;
+    // CSS-размер больше не нужен — физический размер canvas = итоговый
+    if (canvas.style.width !== "") canvas.style.width = "";
+    if (canvas.style.height !== "") canvas.style.height = "";
   }
 
   private savePng(): void {
@@ -424,5 +492,67 @@ export class ImageEditorComponent {
     link.href = url;
     link.download = fileName;
     link.click();
+  }
+
+  openConvolution(): void {
+    if (!this.originalImageData) return;
+    this.convolutionOpen.set(true);
+  }
+
+  async onConvolutionPreview(
+    settings: ConvolutionSettings | null
+  ): Promise<void> {
+    if (!settings || !this.originalImageData) {
+      this.previewImageData.set(null);
+      return;
+    }
+    const token = ++this.convPreviewToken;
+    this.convolutionProcessing.set(true);
+    try {
+      const result = await applyConvolutionAsync(this.originalImageData, {
+        kernel: settings.kernel,
+        channels: settings.channels,
+        edge: settings.edge,
+        normalize: settings.normalize,
+        bias: settings.bias,
+        grayscale: this.isGrayscaleImage(),
+      });
+      if (token !== this.convPreviewToken) return;
+      this.previewImageData.set(result);
+    } finally {
+      if (token === this.convPreviewToken) {
+        this.convolutionProcessing.set(false);
+      }
+    }
+  }
+
+  async onConvolutionApply(settings: ConvolutionSettings): Promise<void> {
+    if (!this.originalImageData) {
+      this.convolutionOpen.set(false);
+      return;
+    }
+    this.convolutionProcessing.set(true);
+    try {
+      const result = await applyConvolutionAsync(this.originalImageData, {
+        kernel: settings.kernel,
+        channels: settings.channels,
+        edge: settings.edge,
+        normalize: settings.normalize,
+        bias: settings.bias,
+        grayscale: this.isGrayscaleImage(),
+      });
+      this.originalImageData = result;
+      this.previewImageData.set(null);
+      this.refreshChannelsFromImage(result);
+      this.resampleAndDraw();
+    } finally {
+      this.convolutionProcessing.set(false);
+      this.convolutionOpen.set(false);
+    }
+  }
+
+  onConvolutionCancel(): void {
+    this.previewImageData.set(null);
+    this.convolutionOpen.set(false);
   }
 }
