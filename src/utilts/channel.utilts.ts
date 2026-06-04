@@ -12,7 +12,7 @@ const THUMB_MAX = 64;
 export function makeChannelThumb(
   source: ImageData,
   channel: ChannelKey,
-  maxSize: number = THUMB_MAX,
+  maxSize: number = THUMB_MAX
 ): string {
   // Сохраняем пропорции
   const ratio = source.width / source.height;
@@ -61,11 +61,12 @@ export function makeChannelThumb(
 export function applyChannelMask(
   source: ImageData,
   state: ChannelState,
+  isGrayscale: boolean = false
 ): ImageData {
   const out = new ImageData(
     new Uint8ClampedArray(source.data),
     source.width,
-    source.height,
+    source.height
   );
   const data = out.data;
 
@@ -80,11 +81,21 @@ export function applyChannelMask(
       data[i + 3] = 255;
       continue;
     }
-    if (!state.r) data[i] = 0;
-    if (!state.g) data[i + 1] = 0;
-    if (!state.b) data[i + 2] = 0;
-    if (!state.a) data[i + 3] = 255;
-  }
 
+    if (isGrayscale) {
+      if (!state.r) {
+        data[i] = 0;
+        data[i + 1] = 0;
+        data[i + 2] = 0;
+      }
+
+      if (!state.a) data[i + 3] = 255;
+    } else {
+      if (!state.r) data[i] = 0;
+      if (!state.g) data[i + 1] = 0;
+      if (!state.b) data[i + 2] = 0;
+      if (!state.a) data[i + 3] = 255;
+    }
+  }
   return out;
 }

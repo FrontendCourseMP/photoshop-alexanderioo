@@ -6,11 +6,23 @@ export interface ConvolutionChannels {
   b: boolean;
 }
 
+export interface ConvolutionOptions {
+  kernel: number[]; // 9 значений
+  channels: ConvolutionChannels;
+  edge: EdgeMode;
+  divisor?: number; // если undefined → 1
+  bias?: number; // смещение, по умолчанию 0
+  normalize?: boolean; // если true → divisor = sum(kernel) (или 1, если sum=0)
+  grayscale?: boolean; // если true → результат пишется во все R=G=B
+}
+
 export interface KernelPreset {
   id: string;
   label: string;
   description: string;
   kernel: number[];
+  bias?: number;
+  normalize?: boolean;
 }
 
 export const KERNEL_PRESETS: KernelPreset[] = [
@@ -29,42 +41,57 @@ export const KERNEL_PRESETS: KernelPreset[] = [
   {
     id: "gauss3",
     label: "Фильтр Гаусса 3×3",
-    description: "Гауссово размытие с σ≈1.",
-    kernel: [
-      1 / 16,
-      2 / 16,
-      1 / 16,
-      2 / 16,
-      4 / 16,
-      2 / 16,
-      1 / 16,
-      2 / 16,
-      1 / 16,
-    ],
+    description: "Гауссово размытие, σ≈1. Нормализовано (сумма = 16).",
+    kernel: [1, 2, 1, 2, 4, 2, 1, 2, 1],
+    normalize: true,
   },
   {
     id: "box",
     label: "Прямоугольное размытие",
-    description: "Простое усреднение по окну 3×3.",
-    kernel: [1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9],
+    description: "Усреднение по окну 3×3.",
+    kernel: [1, 1, 1, 1, 1, 1, 1, 1, 1],
+    normalize: true,
   },
   {
     id: "prewitt_x",
     label: "Прюитт по X",
-    description: "Оператор Прюитта — детектор горизонтальных границ.",
+    description:
+      "Детектор вертикальных границ. Bias=128 для отображения отрицательных значений.",
     kernel: [-1, 0, 1, -1, 0, 1, -1, 0, 1],
+    bias: 128,
   },
   {
     id: "prewitt_y",
     label: "Прюитт по Y",
-    description: "Оператор Прюитта — детектор вертикальных границ.",
+    description:
+      "Детектор горизонтальных границ. Bias=128 для отображения отрицательных значений.",
     kernel: [-1, -1, -1, 0, 0, 0, 1, 1, 1],
+    bias: 128,
   },
 ];
 
-/**
- * Расширяет изображение на 1 пиксель по краям согласно стратегии.
- */
+export function getKernelSum(kernel: number[]): number {
+  let s = 0;
+  for (let i = 0; i < kernel.length; i++) s += kernel[i];
+  return s;
+}
+
+export function parseKernelValue(raw: string): number {
+  if (raw == null) return 0;
+  const trimmed = raw.toString().trim();
+  if (trimmed === "" || trimmed === "-") return 0;
+  // поддержка дробей вида "1/16"
+  if (trimmed.includes("/")) {
+    const [a, b] = trimmed.split("/").map((s) => parseFloat(s));
+    if (Number.isFinite(a) && Number.isFinite(b) && b !== 0) return a / b;
+    return 0;
+  }
+  const n = parseFloat(trimmed);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/* ---------- padding ---------- */
+
 function padImage(src: ImageData, mode: EdgeMode): ImageData {
   const sw = src.width;
   const sh = src.height;
@@ -73,21 +100,6 @@ function padImage(src: ImageData, mode: EdgeMode): ImageData {
   const out = new ImageData(pw, ph);
   const sd = src.data;
   const od = out.data;
-
-  // Сначала залить рамку
-  const fill = (i: number) => {
-    if (mode === "black") {
-      od[i] = 0;
-      od[i + 1] = 0;
-      od[i + 2] = 0;
-      od[i + 3] = 255;
-    } else if (mode === "white") {
-      od[i] = 255;
-      od[i + 1] = 255;
-      od[i + 2] = 255;
-      od[i + 3] = 255;
-    }
-  };
 
   for (let y = 0; y < ph; y++) {
     for (let x = 0; x < pw; x++) {
@@ -107,30 +119,53 @@ function padImage(src: ImageData, mode: EdgeMode): ImageData {
         od[oi + 1] = sd[si + 1];
         od[oi + 2] = sd[si + 2];
         od[oi + 3] = sd[si + 3];
+      } else if (mode === "black") {
+        od[oi] = 0;
+        od[oi + 1] = 0;
+        od[oi + 2] = 0;
+        od[oi + 3] = 255;
       } else {
-        fill(oi);
+        od[oi] = 255;
+        od[oi + 1] = 255;
+        od[oi + 2] = 255;
+        od[oi + 3] = 255;
       }
     }
   }
   return out;
 }
 
-/**
- * Применяет ядро 3×3 к выбранным каналам.
- * Возвращает НОВЫЙ ImageData того же размера, что и src.
- */
+/* ---------- helpers ---------- */
+
+function clamp255(v: number): number {
+  return v < 0 ? 0 : v > 255 ? 255 : v;
+}
+
+function resolveDivisor(opts: ConvolutionOptions): number {
+  if (opts.normalize) {
+    const sum = getKernelSum(opts.kernel);
+    return sum === 0 ? 1 : sum;
+  }
+  if (opts.divisor !== undefined && opts.divisor !== 0) return opts.divisor;
+  return 1;
+}
+
+/* ---------- sync ---------- */
+
 export function applyConvolution(
   src: ImageData,
-  kernel: number[],
-  channels: ConvolutionChannels,
-  edge: EdgeMode
+  opts: ConvolutionOptions,
 ): ImageData {
-  if (kernel.length !== 9) throw new Error("Kernel must be 3x3");
-  const padded = padImage(src, edge);
+  if (opts.kernel.length !== 9) throw new Error("Kernel must be 3x3");
+  const padded = padImage(src, opts.edge);
   const pw = padded.width;
   const pd = padded.data;
   const sw = src.width;
   const sh = src.height;
+  const div = resolveDivisor(opts);
+  const bias = opts.bias ?? 0;
+  const k = opts.kernel;
+  const gray = opts.grayscale === true;
 
   const out = new ImageData(new Uint8ClampedArray(src.data), sw, sh);
   const od = out.data;
@@ -142,40 +177,53 @@ export function applyConvolution(
         sb = 0;
       for (let ky = 0; ky < 3; ky++) {
         for (let kx = 0; kx < 3; kx++) {
-          const px = x + kx;
-          const py = y + ky;
-          const pi = (py * pw + px) * 4;
-          const k = kernel[ky * 3 + kx];
-          sr += pd[pi] * k;
-          sg += pd[pi + 1] * k;
-          sb += pd[pi + 2] * k;
+          const pi = ((y + ky) * pw + (x + kx)) * 4;
+          const kv = k[ky * 3 + kx];
+          sr += pd[pi] * kv;
+          sg += pd[pi + 1] * kv;
+          sb += pd[pi + 2] * kv;
         }
       }
+      sr = sr / div + bias;
+      sg = sg / div + bias;
+      sb = sb / div + bias;
+
       const oi = (y * sw + x) * 4;
-      if (channels.r) od[oi] = Math.max(0, Math.min(255, sr));
-      if (channels.g) od[oi + 1] = Math.max(0, Math.min(255, sg));
-      if (channels.b) od[oi + 2] = Math.max(0, Math.min(255, sb));
-      // alpha не трогаем (как в Photoshop custom)
+
+      if (gray) {
+        // grayscale-изображение: один результат на все RGB
+        const v = clamp255(sr);
+        od[oi] = v;
+        od[oi + 1] = v;
+        od[oi + 2] = v;
+      } else {
+        if (opts.channels.r) od[oi] = clamp255(sr);
+        if (opts.channels.g) od[oi + 1] = clamp255(sg);
+        if (opts.channels.b) od[oi + 2] = clamp255(sb);
+      }
+      // alpha не трогаем (берётся из src.data из конструктора out)
     }
   }
   return out;
 }
 
-/**
- * Асинхронная версия с разбиением на чанки — UI не блокируется.
- */
+/* ---------- async (UI не зависает) ---------- */
+
 export async function applyConvolutionAsync(
   src: ImageData,
-  kernel: number[],
-  channels: ConvolutionChannels,
-  edge: EdgeMode,
-  chunkRows = 64
+  opts: ConvolutionOptions,
+  chunkRows = 32,
 ): Promise<ImageData> {
-  const padded = padImage(src, edge);
+  if (opts.kernel.length !== 9) throw new Error("Kernel must be 3x3");
+  const padded = padImage(src, opts.edge);
   const pw = padded.width;
   const pd = padded.data;
   const sw = src.width;
   const sh = src.height;
+  const div = resolveDivisor(opts);
+  const bias = opts.bias ?? 0;
+  const k = opts.kernel;
+  const gray = opts.grayscale === true;
 
   const out = new ImageData(new Uint8ClampedArray(src.data), sw, sh);
   const od = out.data;
@@ -190,18 +238,30 @@ export async function applyConvolutionAsync(
         for (let ky = 0; ky < 3; ky++) {
           for (let kx = 0; kx < 3; kx++) {
             const pi = ((y + ky) * pw + (x + kx)) * 4;
-            const k = kernel[ky * 3 + kx];
-            sr += pd[pi] * k;
-            sg += pd[pi + 1] * k;
-            sb += pd[pi + 2] * k;
+            const kv = k[ky * 3 + kx];
+            sr += pd[pi] * kv;
+            sg += pd[pi + 1] * kv;
+            sb += pd[pi + 2] * kv;
           }
         }
+        sr = sr / div + bias;
+        sg = sg / div + bias;
+        sb = sb / div + bias;
+
         const oi = (y * sw + x) * 4;
-        if (channels.r) od[oi] = Math.max(0, Math.min(255, sr));
-        if (channels.g) od[oi + 1] = Math.max(0, Math.min(255, sg));
-        if (channels.b) od[oi + 2] = Math.max(0, Math.min(255, sb));
+        if (gray) {
+          const v = clamp255(sr);
+          od[oi] = v;
+          od[oi + 1] = v;
+          od[oi + 2] = v;
+        } else {
+          if (opts.channels.r) od[oi] = clamp255(sr);
+          if (opts.channels.g) od[oi + 1] = clamp255(sg);
+          if (opts.channels.b) od[oi + 2] = clamp255(sb);
+        }
       }
     }
+    // отдаём управление браузеру
     await new Promise((r) => setTimeout(r, 0));
   }
   return out;
