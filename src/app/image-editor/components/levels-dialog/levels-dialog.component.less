@@ -10,7 +10,6 @@
   font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
   font-size: 13px;
 
-  /* Размещаем в правом верхнем углу, чтобы не закрывать canvas */
   position: fixed;
   top: 70px;
   right: 20px;
@@ -18,7 +17,7 @@
   margin: 0;
 
   &::backdrop {
-    background: transparent; /* НЕ затемняем — препод видит превью */
+    background: transparent;
   }
 
   form {
@@ -95,22 +94,92 @@
   }
 }
 
-.sliders {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.levels-track {
+  position: relative;
+  height: 32px;
+  margin: 8px 10px 8px;
+  user-select: none;
+  cursor: pointer;
+
+  .track-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 6px;
+    background: #1e1e1e;
+    border: 1px solid #4a4a4a;
+    border-radius: 3px;
+    z-index: 1;
+  }
+
+  .track-gradient {
+    position: absolute;
+    left: 1px;
+    right: 1px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 4px;
+    background: linear-gradient(to right, #000 0%, #fff 100%);
+    border-radius: 2px;
+    opacity: 0.7;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .marker {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px #000, 0 2px 4px rgba(0, 0, 0, 0.5);
+    cursor: grab;
+    transition: transform 0.1s ease;
+    z-index: 4;
+
+    &:hover {
+      transform: translate(-50%, -50%) scale(1.15);
+    }
+
+    &:active {
+      cursor: grabbing;
+      transform: translate(-50%, -50%) scale(1.2);
+    }
+
+    &-black {
+      background: #000;
+    }
+
+    &-white {
+      background: #fff;
+      border-color: #000;
+      box-shadow: 0 0 0 1px #fff, 0 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    &-gamma {
+      background: #888;
+      width: 14px;
+      height: 14px;
+      z-index: 3;
+    }
+  }
 }
 
-.slider {
-  display: grid;
-  grid-template-columns: 160px 1fr;
-  align-items: center;
-  gap: 10px;
+.values-row {
+  display: flex;
+  justify-content: space-between;
   font-size: 11px;
-  color: #d0d0d0;
+  color: #b0b0b0;
+  margin: 0 4px 8px;
+  font-family: "SF Mono", Menlo, monospace;
 
-  input[type="range"] {
-    width: 100%;
+  b {
+    color: #fff;
+    font-weight: 600;
   }
 }
 

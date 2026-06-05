@@ -131,14 +131,12 @@ export class ImageEditorComponent {
       }
     });
 
-    // При смене каналов или превью — перерисовать (мгновенно)
     effect(() => {
       this.channelState();
       this.previewImageData();
       this.resampleAndDraw();
     });
 
-    // При смене масштаба или алгоритма — ресэмплинг с debounce
     effect(() => {
       this.scale();
       this.currentInterpolation();
@@ -276,8 +274,6 @@ export class ImageEditorComponent {
     this.levelsOpen.set(false);
   }
 
-  // === Resize ===
-
   openResize(): void {
     if (!this.originalImageData) return;
     this.resizeOpen.set(true);
@@ -308,8 +304,6 @@ export class ImageEditorComponent {
   onResizeCancel(): void {
     this.resizeOpen.set(false);
   }
-
-  // === GB7 / image loading ===
 
   private loadGb7(file: File): void {
     const reader = new FileReader();
@@ -469,7 +463,6 @@ export class ImageEditorComponent {
 
     this.ctx.putImageData(imageData, 0, 0);
 
-    // CSS-размер больше не нужен — физический размер canvas = итоговый
     if (canvas.style.width !== "") canvas.style.width = "";
     if (canvas.style.height !== "") canvas.style.height = "";
   }
@@ -515,6 +508,7 @@ export class ImageEditorComponent {
         edge: settings.edge,
         normalize: settings.normalize,
         bias: settings.bias,
+        abs: settings.abs,
         grayscale: this.isGrayscaleImage(),
       });
       if (token !== this.convPreviewToken) return;
@@ -539,6 +533,7 @@ export class ImageEditorComponent {
         edge: settings.edge,
         normalize: settings.normalize,
         bias: settings.bias,
+        abs: settings.abs,
         grayscale: this.isGrayscaleImage(),
       });
       this.originalImageData = result;

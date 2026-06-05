@@ -20,9 +20,9 @@
       [class.eyedropper]="activeTool() === 'eyedropper'"
     >
       @if (!hasImage()) {
-        <div class="empty">
-          <p>Загрузите изображение в формате PNG, JPG или GB7</p>
-        </div>
+      <div class="empty">
+        <p>Загрузите изображение в формате PNG, JPG или GB7</p>
+      </div>
       }
 
       <div class="canvas-wrapper" [class.hidden]="!hasImage()">
@@ -31,16 +31,16 @@
     </main>
 
     @if (hasImage()) {
-      <app-channels-panel
-        [thumbs]="channelThumbs()"
-        [state]="channelState()"
-        (channelToggled)="onChannelToggle($event)"
-      />
+    <app-channels-panel
+      [thumbs]="channelThumbs()"
+      [state]="channelState()"
+      (channelToggled)="onChannelToggle($event)"
+    />
     }
   </div>
 
   @if (activeTool() === "eyedropper" && pixelInfo()) {
-    <app-color-picker-info [pixel]="pixelInfo()" />
+  <app-color-picker-info [pixel]="pixelInfo()" />
   }
 
   <app-editor-status-bar
@@ -50,32 +50,29 @@
   />
 
   @if (levelsOpen() && levelsSource(); as src) {
-    <app-levels-dialog
-      [source]="src"
-      [hasAlpha]="hasAlphaChannel()"
-      [availableChannels]="availableChannels()"
-      (settingsChange)="onLevelsPreview($event)"
-      (applied)="onLevelsApply($event)"
-      (cancelled)="onLevelsCancel()"
-    />
-  }
-
-  @if (resizeOpen()) {
-    <app-resize-dialog
-      [sourceWidth]="sourceWidth"
-      [sourceHeight]="sourceHeight"
-      (applied)="onResizeApply($event)"
-      (cancelled)="onResizeCancel()"
-    />
-  }
-
-  @if (convolutionOpen()) {
-    <app-convolution-dialog
-      [isGrayscale]="isGrayscaleImage()"
-      [processing]="convolutionProcessing()"
-      (settingsChange)="onConvolutionPreview($event)"
-      (applied)="onConvolutionApply($event)"
-      (cancelled)="onConvolutionCancel()"
-    />
+  <app-levels-dialog
+    [source]="src"
+    [hasAlpha]="hasAlphaChannel()"
+    [availableChannels]="availableChannels()"
+    (settingsChange)="onLevelsPreview($event)"
+    (applied)="onLevelsApply($event)"
+    (cancelled)="onLevelsCancel()"
+  />
+  } @if (resizeOpen()) {
+  <app-resize-dialog
+    [sourceWidth]="sourceWidth"
+    [sourceHeight]="sourceHeight"
+    (applied)="onResizeApply($event)"
+    (cancelled)="onResizeCancel()"
+  />
+  } @if (convolutionOpen()) {
+  <app-convolution-dialog
+    [isGrayscale]="isGrayscaleImage()"
+    [processing]="convolutionProcessing()"
+    [availableChannels]="availableChannels()"
+    (settingsChange)="onConvolutionPreview($event)"
+    (applied)="onConvolutionApply($event)"
+    (cancelled)="onConvolutionCancel()"
+  />
   }
 </div>

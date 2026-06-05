@@ -3,7 +3,6 @@ import {
   Component,
   ElementRef,
   OnDestroy,
-  afterNextRender,
   computed,
   effect,
   input,
@@ -46,6 +45,8 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
     viewChild.required<ElementRef<HTMLDialogElement>>("dlg");
   private readonly histCanvasRef =
     viewChild.required<ElementRef<HTMLCanvasElement>>("histCanvas");
+  private readonly trackRef =
+    viewChild.required<ElementRef<HTMLDivElement>>("track");
 
   readonly settings = signal<LevelsSettings>(createDefaultLevelsSettings());
   readonly channel = signal<LevelsChannel>("master");
@@ -53,6 +54,14 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
   readonly preview = signal<boolean>(true);
 
   readonly current = computed(() => this.settings()[this.channel()]);
+
+  readonly gammaMarkerPercent = computed(() => {
+    const c = this.current();
+    const black = c.blackPoint;
+    const white = c.whitePoint;
+    const pos = gammaToSliderPos(c.gamma);
+    return ((black + (white - black) * pos) / 255) * 100;
+  });
 
   readonly channels = computed<{ value: LevelsChannel; label: string }[]>(
     () => {
@@ -82,6 +91,9 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
     }
   );
 
+  private dragging: "black" | "gamma" | "white" | null = null;
+  private dragMoveHandler: ((e: MouseEvent) => void) | null = null;
+  private dragUpHandler: (() => void) | null = null;
   private rafId: number | null = null;
 
   constructor() {
@@ -110,26 +122,21 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
         this.settingsChange.emit(null);
       }
     });
-
-    afterNextRender(() => {
-      this.drawHistogram();
-      requestAnimationFrame(() => {
-        this.drawHistogram();
-        requestAnimationFrame(() => this.drawHistogram());
-      });
-    });
   }
 
   ngAfterViewInit(): void {
     this.dialogRef().nativeElement.show();
-
     requestAnimationFrame(() => this.drawHistogram());
-    setTimeout(() => this.drawHistogram(), 50);
-    setTimeout(() => this.drawHistogram(), 150);
   }
 
   ngOnDestroy(): void {
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+    if (this.dragMoveHandler) {
+      window.removeEventListener("mousemove", this.dragMoveHandler);
+    }
+    if (this.dragUpHandler) {
+      window.removeEventListener("mouseup", this.dragUpHandler);
+    }
   }
 
   onChannelChange(value: string): void {
@@ -172,6 +179,86 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
     this.settings.update((s) => ({ ...s, [ch]: fn(s[ch]) }));
   }
 
+  // === Drag-маркеры ===
+
+  startDrag(event: MouseEvent, type: "black" | "gamma" | "white"): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.dragging = type;
+    this.attachGlobalListeners();
+  }
+
+  onTrackMouseDown(event: MouseEvent): void {
+    const value = this.eventToValue(event);
+    if (value === null) return;
+    const c = this.current();
+    const distBlack = Math.abs(value - c.blackPoint);
+    const distWhite = Math.abs(value - c.whitePoint);
+    const gammaVal =
+      c.blackPoint + (c.whitePoint - c.blackPoint) * gammaToSliderPos(c.gamma);
+    const distGamma = Math.abs(value - gammaVal);
+
+    const min = Math.min(distBlack, distGamma, distWhite);
+    let type: "black" | "gamma" | "white";
+    if (min === distBlack) type = "black";
+    else if (min === distGamma) type = "gamma";
+    else type = "white";
+
+    this.dragging = type;
+    this.applyDragValue(value);
+    this.attachGlobalListeners();
+  }
+
+  private attachGlobalListeners(): void {
+    this.dragMoveHandler = (e: MouseEvent) => {
+      if (!this.dragging) return;
+      const value = this.eventToValue(e);
+      if (value === null) return;
+      this.applyDragValue(value);
+    };
+    this.dragUpHandler = () => {
+      this.dragging = null;
+      if (this.dragMoveHandler) {
+        window.removeEventListener("mousemove", this.dragMoveHandler);
+      }
+      if (this.dragUpHandler) {
+        window.removeEventListener("mouseup", this.dragUpHandler);
+      }
+      this.dragMoveHandler = null;
+      this.dragUpHandler = null;
+    };
+    window.addEventListener("mousemove", this.dragMoveHandler);
+    window.addEventListener("mouseup", this.dragUpHandler);
+  }
+
+  private eventToValue(event: MouseEvent): number | null {
+    const el = this.trackRef()?.nativeElement;
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const pct = Math.max(0, Math.min(1, x / rect.width));
+    return Math.round(pct * 255);
+  }
+
+  private applyDragValue(value: number): void {
+    if (this.dragging === "black") {
+      this.onBlack(value);
+    } else if (this.dragging === "white") {
+      this.onWhite(value);
+    } else if (this.dragging === "gamma") {
+      const c = this.current();
+      const range = c.whitePoint - c.blackPoint;
+      if (range <= 0) return;
+      const pos = (value - c.blackPoint) / range;
+      const clamped = Math.max(0.001, Math.min(0.999, pos));
+      const logGamma = (clamped - 0.5) * 2 * Math.log(9.9);
+      const gamma = 1 / Math.exp(logGamma);
+      this.onGamma(Math.max(0.1, Math.min(9.9, gamma)));
+    }
+  }
+
+  // === Footer ===
+
   onReset(): void {
     this.settings.set(createDefaultLevelsSettings());
   }
@@ -188,12 +275,12 @@ export class LevelsDialogComponent implements AfterViewInit, OnDestroy {
     this.applied.emit(s);
   }
 
+  // === Гистограмма ===
+
   private drawHistogram(): void {
     const src = this.source();
     const canvas = this.histCanvasRef()?.nativeElement;
     if (!canvas || !src) return;
-
-    if (canvas.width === 0 || canvas.height === 0) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;

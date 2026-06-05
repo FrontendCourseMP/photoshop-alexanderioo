@@ -18,6 +18,7 @@ import {
   parseKernelValue,
 } from "../../../../utilts/convolution.utilts";
 import { DecimalPipe } from "@angular/common";
+import { ChannelKey } from "../../models/channel.model";
 
 @Component({
   selector: "app-convolution-dialog",
@@ -29,13 +30,14 @@ import { DecimalPipe } from "@angular/common";
 export class ConvolutionDialogComponent {
   readonly isGrayscale = input<boolean>(false);
   readonly processing = input<boolean>(false);
+  readonly availableChannels = input<readonly ChannelKey[]>(["r", "g", "b"]);
 
   readonly settingsChange = output<ConvolutionSettings | null>();
   readonly applied = output<ConvolutionSettings>();
   readonly cancelled = output<void>();
 
   readonly settings = signal<ConvolutionSettings>(
-    createDefaultConvolutionSettings(),
+    createDefaultConvolutionSettings()
   );
   readonly preview = signal<boolean>(true);
 
@@ -48,6 +50,11 @@ export class ConvolutionDialogComponent {
 
   readonly kernelSum = computed(() => getKernelSum(this.settings().kernel));
 
+  // ✅ Какие каналы реально показывать пользователю
+  readonly showR = computed(() => this.availableChannels().includes("r"));
+  readonly showG = computed(() => this.availableChannels().includes("g"));
+  readonly showB = computed(() => this.availableChannels().includes("b"));
+
   constructor() {
     effect(() => {
       const s = this.settings();
@@ -57,11 +64,29 @@ export class ConvolutionDialogComponent {
         this.settingsChange.emit(null);
       }
     });
+
+    // ✅ Если доступны не все каналы — отключаем недоступные в settings
+    effect(() => {
+      const avail = this.availableChannels();
+      this.settings.update((s) => ({
+        ...s,
+        channels: {
+          r: avail.includes("r") ? s.channels.r : false,
+          g: avail.includes("g") ? s.channels.g : false,
+          b: avail.includes("b") ? s.channels.b : false,
+        },
+      }));
+    });
   }
 
   /* ---------- preset ---------- */
 
   onPresetChange(id: string): void {
+    if (id === "custom") {
+      this.settings.update((s) => ({ ...s, presetId: "custom" }));
+      return;
+    }
+
     const preset = KERNEL_PRESETS.find((p) => p.id === id);
     if (!preset) return;
     this.settings.update((s) => ({
@@ -70,14 +95,15 @@ export class ConvolutionDialogComponent {
       kernel: [...preset.kernel],
       normalize: preset.normalize ?? false,
       bias: preset.bias ?? 0,
+      abs: preset.abs ?? false,
     }));
   }
-
-  /* ---------- kernel cells ---------- */
 
   onCellChange(idx: number, raw: string): void {
     const value = parseKernelValue(raw);
     this.settings.update((s) => {
+      if (s.kernel[idx] === value) return s;
+
       const k = [...s.kernel];
       k[idx] = value;
       return { ...s, kernel: k, presetId: "custom" };
@@ -102,34 +128,42 @@ export class ConvolutionDialogComponent {
   /* ---------- normalize / bias ---------- */
 
   onNormalizeChange(value: boolean): void {
-    this.settings.update((s) => ({ ...s, normalize: value }));
+    this.settings.update((s) => {
+      // ✅ Если значение реально не изменилось — не трогаем пресет
+      if (s.normalize === value) return s;
+      return { ...s, normalize: value, presetId: "custom" };
+    });
   }
 
   onBiasChange(raw: string): void {
     const v = parseKernelValue(raw);
-    this.settings.update((s) => ({ ...s, bias: v }));
+    this.settings.update((s) => {
+      if (s.bias === v) return s;
+      return { ...s, bias: v, presetId: "custom" };
+    });
   }
-
-  /* ---------- preview ---------- */
 
   togglePreview(value: boolean): void {
     this.preview.set(value);
   }
 
-  /* ---------- footer ---------- */
-
   onReset(): void {
-    // Сбрасываем к текущему пресету (или к identity)
     const presetId = this.settings().presetId;
     const preset =
       KERNEL_PRESETS.find((p) => p.id === presetId) ?? KERNEL_PRESETS[0];
+    const avail = this.availableChannels();
     this.settings.set({
       presetId: preset.id,
       kernel: [...preset.kernel],
-      channels: { r: true, g: true, b: true },
+      channels: {
+        r: avail.includes("r"),
+        g: avail.includes("g"),
+        b: avail.includes("b"),
+      },
       edge: "copy",
       normalize: preset.normalize ?? false,
       bias: preset.bias ?? 0,
+      abs: preset.abs ?? false,
     });
   }
 

@@ -1,49 +1,50 @@
 <div class="conv-dialog">
   <header class="dlg-header">
     <h2>Фильтрация (свёртка 3×3)</h2>
+
     <button type="button" class="x" (click)="onCancel()">×</button>
   </header>
 
   <div class="dlg-body">
-    <!-- Preset -->
     <div class="row">
       <label class="block">
         <span>Пресет</span>
+
         <select
           [value]="settings().presetId"
           (change)="onPresetChange($any($event.target).value)"
         >
           @for (p of presets; track p.id) {
-            <option [value]="p.id" [title]="p.description">
-              {{ p.label }}
-            </option>
+          <option [value]="p.id" [title]="p.description">
+            {{ p.label }}
+          </option>
           }
-          @if (settings().presetId === "custom") {
-            <option value="custom">Пользовательское ядро</option>
-          }
+
+          <option value="custom">Пользовательское ядро</option>
         </select>
       </label>
     </div>
 
-    <!-- Kernel 3x3 -->
     <div class="kernel-section">
       <div class="section-title">Ядро 3×3</div>
+
       <div class="kernel-grid">
         @for (val of settings().kernel; track $index) {
-          <input
-            type="text"
-            [value]="val"
-            (change)="onCellChange($index, $any($event.target).value)"
-            (blur)="onCellChange($index, $any($event.target).value)"
-          />
+        <input
+          type="text"
+          [value]="val"
+          (change)="onCellChange($index, $any($event.target).value)"
+        />
         }
       </div>
+
       <div class="kernel-info">
-        Сумма: <b>{{ kernelSum() | number: "1.0-4" }}</b>
+        Сумма: <b>{{ kernelSum() | number : "1.0-4" }}</b>
       </div>
     </div>
 
     <!-- Normalize + Bias -->
+
     <div class="row two-cols">
       <label class="checkbox">
         <input
@@ -51,10 +52,13 @@
           [checked]="settings().normalize"
           (change)="onNormalizeChange($any($event.target).checked)"
         />
+
         Нормализовать (÷ сумму)
       </label>
+
       <label class="block small">
         <span>Смещение (bias)</span>
+
         <input
           type="number"
           step="1"
@@ -64,58 +68,63 @@
       </label>
     </div>
 
-    <!-- Channels -->
     @if (!isGrayscale()) {
-      <div class="row">
-        <span class="section-title inline">Каналы:</span>
-        <label class="checkbox">
-          <input
-            type="checkbox"
-            [checked]="settings().channels.r"
-            (change)="toggleChannel('r')"
-          />
-          R
-        </label>
-        <label class="checkbox">
-          <input
-            type="checkbox"
-            [checked]="settings().channels.g"
-            (change)="toggleChannel('g')"
-          />
-          G
-        </label>
-        <label class="checkbox">
-          <input
-            type="checkbox"
-            [checked]="settings().channels.b"
-            (change)="toggleChannel('b')"
-          />
-          B
-        </label>
-      </div>
+    <div class="row">
+      <span class="section-title inline">Каналы:</span>
+
+      @if (showR()) {
+      <label class="checkbox">
+        <input
+          type="checkbox"
+          [checked]="settings().channels.r"
+          (change)="toggleChannel('r')"
+        />
+        R
+      </label>
+      } @if (showG()) {
+      <label class="checkbox">
+        <input
+          type="checkbox"
+          [checked]="settings().channels.g"
+          (change)="toggleChannel('g')"
+        />
+        G
+      </label>
+      } @if (showB()) {
+      <label class="checkbox">
+        <input
+          type="checkbox"
+          [checked]="settings().channels.b"
+          (change)="toggleChannel('b')"
+        />
+        B
+      </label>
+      }
+    </div>
     } @else {
-      <div class="note">
-        Изображение в градациях серого — фильтр применяется одинаково ко всем
-        каналам.
-      </div>
+    <div class="note">
+      Изображение в градациях серого — фильтр применяется одинаково ко всем
+      каналам.
+    </div>
     }
 
-    <!-- Edge mode -->
     <div class="row">
       <label class="block">
         <span>Заполнение краёв</span>
+
         <select
           [value]="settings().edge"
           (change)="onEdgeChange($any($event.target).value)"
         >
           @for (m of edgeModes; track m.value) {
-            <option [value]="m.value">{{ m.label }}</option>
+          <option [value]="m.value">{{ m.label }}</option>
           }
         </select>
       </label>
     </div>
 
     <!-- Preview -->
+
     <div class="row">
       <label class="checkbox">
         <input
@@ -123,17 +132,21 @@
           [checked]="preview()"
           (change)="togglePreview($any($event.target).checked)"
         />
+
         Предпросмотр
       </label>
+
       @if (processing()) {
-        <span class="processing">⏳ обработка…</span>
+      <span class="processing">⏳ обработка…</span>
       }
     </div>
   </div>
 
   <footer class="dlg-footer">
     <button type="button" class="btn" (click)="onReset()">Сброс</button>
+
     <button type="button" class="btn" (click)="onCancel()">Закрыть</button>
+
     <button type="button" class="btn btn-primary" (click)="onApply()">
       Применить
     </button>

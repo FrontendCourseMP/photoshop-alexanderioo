@@ -5,16 +5,11 @@ import {
 
 const THUMB_MAX = 64;
 
-/**
- * Возвращает миниатюру одного канала в градациях серого.
- * Размер вписывается в THUMB_MAX × THUMB_MAX с сохранением пропорций.
- */
 export function makeChannelThumb(
   source: ImageData,
   channel: ChannelKey,
   maxSize: number = THUMB_MAX
 ): string {
-  // Сохраняем пропорции
   const ratio = source.width / source.height;
   let w: number, h: number;
   if (ratio >= 1) {
@@ -25,39 +20,38 @@ export function makeChannelThumb(
     w = Math.max(1, Math.round(maxSize * ratio));
   }
 
+  const sw = source.width;
+  const sh = source.height;
+  const sd = source.data;
+  const offset = { r: 0, g: 1, b: 2, a: 3 }[channel];
+
+  const out = new ImageData(w, h);
+  const od = out.data;
+  const xRatio = sw / w;
+  const yRatio = sh / h;
+
+  for (let y = 0; y < h; y++) {
+    const sy = Math.min(sh - 1, Math.floor(y * yRatio));
+    for (let x = 0; x < w; x++) {
+      const sx = Math.min(sw - 1, Math.floor(x * xRatio));
+      const si = (sy * sw + sx) * 4;
+      const di = (y * w + x) * 4;
+      const v = sd[si + offset];
+      od[di] = v;
+      od[di + 1] = v;
+      od[di + 2] = v;
+      od[di + 3] = 255;
+    }
+  }
+
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d")!;
-
-  // Сначала ставим исходник на временный canvas
-  const tmp = document.createElement("canvas");
-  tmp.width = source.width;
-  tmp.height = source.height;
-  tmp.getContext("2d")!.putImageData(source, 0, 0);
-
-  // Ужимаем с сохранением соотношения
-  ctx.drawImage(tmp, 0, 0, w, h);
-  const imageData = ctx.getImageData(0, 0, w, h);
-  const data = imageData.data;
-
-  const offset = { r: 0, g: 1, b: 2, a: 3 }[channel];
-
-  for (let i = 0; i < data.length; i += 4) {
-    const v = data[i + offset];
-    data[i] = v;
-    data[i + 1] = v;
-    data[i + 2] = v;
-    data[i + 3] = 255;
-  }
-
-  ctx.putImageData(imageData, 0, 0);
+  ctx.putImageData(out, 0, 0);
   return canvas.toDataURL("image/png");
 }
 
-/**
- * Применяет состояние каналов к ImageData (создаёт копию, оригинал не трогает).
- */
 export function applyChannelMask(
   source: ImageData,
   state: ChannelState,
@@ -88,7 +82,6 @@ export function applyChannelMask(
         data[i + 1] = 0;
         data[i + 2] = 0;
       }
-
       if (!state.a) data[i + 3] = 255;
     } else {
       if (!state.r) data[i] = 0;

@@ -14,6 +14,7 @@ export interface ConvolutionOptions {
   bias?: number; // смещение, по умолчанию 0
   normalize?: boolean; // если true → divisor = sum(kernel) (или 1, если sum=0)
   grayscale?: boolean; // если true → результат пишется во все R=G=B
+  abs?: boolean;
 }
 
 export interface KernelPreset {
@@ -23,6 +24,7 @@ export interface KernelPreset {
   kernel: number[];
   bias?: number;
   normalize?: boolean;
+  abs?: boolean;
 }
 
 export const KERNEL_PRESETS: KernelPreset[] = [
@@ -58,7 +60,7 @@ export const KERNEL_PRESETS: KernelPreset[] = [
     description:
       "Детектор вертикальных границ. Bias=128 для отображения отрицательных значений.",
     kernel: [-1, 0, 1, -1, 0, 1, -1, 0, 1],
-    bias: 128,
+    abs: true,
   },
   {
     id: "prewitt_y",
@@ -66,7 +68,7 @@ export const KERNEL_PRESETS: KernelPreset[] = [
     description:
       "Детектор горизонтальных границ. Bias=128 для отображения отрицательных значений.",
     kernel: [-1, -1, -1, 0, 0, 0, 1, 1, 1],
-    bias: 128,
+    abs: true,
   },
 ];
 
@@ -154,7 +156,7 @@ function resolveDivisor(opts: ConvolutionOptions): number {
 
 export function applyConvolution(
   src: ImageData,
-  opts: ConvolutionOptions,
+  opts: ConvolutionOptions
 ): ImageData {
   if (opts.kernel.length !== 9) throw new Error("Kernel must be 3x3");
   const padded = padImage(src, opts.edge);
@@ -187,6 +189,11 @@ export function applyConvolution(
       sr = sr / div + bias;
       sg = sg / div + bias;
       sb = sb / div + bias;
+      if (opts.abs) {
+        sr = Math.abs(sr);
+        sg = Math.abs(sg);
+        sb = Math.abs(sb);
+      }
 
       const oi = (y * sw + x) * 4;
 
@@ -212,7 +219,7 @@ export function applyConvolution(
 export async function applyConvolutionAsync(
   src: ImageData,
   opts: ConvolutionOptions,
-  chunkRows = 32,
+  chunkRows = 32
 ): Promise<ImageData> {
   if (opts.kernel.length !== 9) throw new Error("Kernel must be 3x3");
   const padded = padImage(src, opts.edge);

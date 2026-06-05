@@ -12,7 +12,7 @@
           (change)="onChannelChange($any($event.target).value)"
         >
           @for (c of channels(); track c.value) {
-            <option [value]="c.value">{{ c.label }}</option>
+          <option [value]="c.value">{{ c.label }}</option>
           }
         </select>
       </label>
@@ -50,42 +50,43 @@
       </div>
     </div>
 
-    <div class="sliders">
-      <label class="slider">
-        <span>Чёрная точка: {{ current().blackPoint }}</span>
-        <input
-          type="range"
-          min="0"
-          max="254"
-          step="1"
-          [value]="current().blackPoint"
-          (input)="onBlack(+$any($event.target).value)"
-        />
-      </label>
+    <!-- ✅ Новый общий трек с тремя маркерами -->
+    <div class="levels-track" #track (mousedown)="onTrackMouseDown($event)">
+      <div class="track-bar"></div>
+      <div class="track-gradient"></div>
 
-      <label class="slider">
-        <span>Гамма: {{ current().gamma.toFixed(2) }}</span>
-        <input
-          type="range"
-          min="0.1"
-          max="9.9"
-          step="0.01"
-          [value]="current().gamma"
-          (input)="onGamma(+$any($event.target).value)"
-        />
-      </label>
+      <div
+        class="marker marker-black"
+        [style.left.%]="(current().blackPoint / 255) * 100"
+        (mousedown)="startDrag($event, 'black')"
+        title="Чёрная точка"
+      ></div>
 
-      <label class="slider">
-        <span>Белая точка: {{ current().whitePoint }}</span>
-        <input
-          type="range"
-          min="1"
-          max="255"
-          step="1"
-          [value]="current().whitePoint"
-          (input)="onWhite(+$any($event.target).value)"
-        />
-      </label>
+      <div
+        class="marker marker-gamma"
+        [style.left.%]="gammaMarkerPercent()"
+        (mousedown)="startDrag($event, 'gamma')"
+        title="Гамма"
+      ></div>
+
+      <div
+        class="marker marker-white"
+        [style.left.%]="(current().whitePoint / 255) * 100"
+        (mousedown)="startDrag($event, 'white')"
+        title="Белая точка"
+      ></div>
+    </div>
+
+    <div class="values-row">
+      <span
+        >Чёрная: <b>{{ current().blackPoint }}</b></span
+      >
+      <span
+        >Гамма: <b>{{ current().gamma.toFixed(2) }}</b></span
+      >
+      <span
+        >Белая: <b>{{ current().whitePoint }}</b></span
+      >
     </div>
 
     <div class="row preview-row">

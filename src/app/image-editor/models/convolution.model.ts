@@ -10,6 +10,7 @@ export interface ConvolutionSettings {
   edge: EdgeMode;
   normalize: boolean;
   bias: number;
+  abs: boolean;
 }
 
 export function createDefaultConvolutionSettings(): ConvolutionSettings {
@@ -20,5 +21,6 @@ export function createDefaultConvolutionSettings(): ConvolutionSettings {
     edge: "copy",
     normalize: false,
     bias: 0,
+    abs: false,
   };
 }
