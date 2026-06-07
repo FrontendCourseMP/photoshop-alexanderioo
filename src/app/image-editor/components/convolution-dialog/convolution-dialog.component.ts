@@ -50,10 +50,10 @@ export class ConvolutionDialogComponent {
 
   readonly kernelSum = computed(() => getKernelSum(this.settings().kernel));
 
-  // ✅ Какие каналы реально показывать пользователю
   readonly showR = computed(() => this.availableChannels().includes("r"));
   readonly showG = computed(() => this.availableChannels().includes("g"));
   readonly showB = computed(() => this.availableChannels().includes("b"));
+  readonly showA = computed(() => this.availableChannels().includes("a"));
 
   constructor() {
     effect(() => {
@@ -65,7 +65,6 @@ export class ConvolutionDialogComponent {
       }
     });
 
-    // ✅ Если доступны не все каналы — отключаем недоступные в settings
     effect(() => {
       const avail = this.availableChannels();
       this.settings.update((s) => ({
@@ -74,12 +73,11 @@ export class ConvolutionDialogComponent {
           r: avail.includes("r") ? s.channels.r : false,
           g: avail.includes("g") ? s.channels.g : false,
           b: avail.includes("b") ? s.channels.b : false,
+          a: avail.includes("a") ? s.channels.a : false,
         },
       }));
     });
   }
-
-  /* ---------- preset ---------- */
 
   onPresetChange(id: string): void {
     if (id === "custom") {
@@ -110,26 +108,19 @@ export class ConvolutionDialogComponent {
     });
   }
 
-  /* ---------- channels ---------- */
-
-  toggleChannel(ch: "r" | "g" | "b"): void {
+  toggleChannel(ch: "r" | "g" | "b" | "a"): void {
     this.settings.update((s) => ({
       ...s,
       channels: { ...s.channels, [ch]: !s.channels[ch] },
     }));
   }
 
-  /* ---------- edge ---------- */
-
   onEdgeChange(value: string): void {
     this.settings.update((s) => ({ ...s, edge: value as EdgeMode }));
   }
 
-  /* ---------- normalize / bias ---------- */
-
   onNormalizeChange(value: boolean): void {
     this.settings.update((s) => {
-      // ✅ Если значение реально не изменилось — не трогаем пресет
       if (s.normalize === value) return s;
       return { ...s, normalize: value, presetId: "custom" };
     });
@@ -159,6 +150,7 @@ export class ConvolutionDialogComponent {
         r: avail.includes("r"),
         g: avail.includes("g"),
         b: avail.includes("b"),
+        a: false,
       },
       edge: "copy",
       normalize: preset.normalize ?? false,
@@ -173,6 +165,8 @@ export class ConvolutionDialogComponent {
   }
 
   onApply(): void {
-    this.applied.emit(this.settings());
+    const s = this.settings();
+    this.settingsChange.emit(null);
+    this.applied.emit(s);
   }
 }

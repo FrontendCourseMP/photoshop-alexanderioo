@@ -4,16 +4,17 @@ export interface ConvolutionChannels {
   r: boolean;
   g: boolean;
   b: boolean;
+  a: boolean;
 }
 
 export interface ConvolutionOptions {
-  kernel: number[]; // 9 значений
+  kernel: number[];
   channels: ConvolutionChannels;
   edge: EdgeMode;
-  divisor?: number; // если undefined → 1
-  bias?: number; // смещение, по умолчанию 0
-  normalize?: boolean; // если true → divisor = sum(kernel) (или 1, если sum=0)
-  grayscale?: boolean; // если true → результат пишется во все R=G=B
+  divisor?: number;
+  bias?: number;
+  normalize?: boolean;
+  grayscale?: boolean;
   abs?: boolean;
 }
 
@@ -57,16 +58,14 @@ export const KERNEL_PRESETS: KernelPreset[] = [
   {
     id: "prewitt_x",
     label: "Прюитт по X",
-    description:
-      "Детектор вертикальных границ. Bias=128 для отображения отрицательных значений.",
+    description: "Детектор вертикальных границ. Чёрный фон, светлые границы.",
     kernel: [-1, 0, 1, -1, 0, 1, -1, 0, 1],
     abs: true,
   },
   {
     id: "prewitt_y",
     label: "Прюитт по Y",
-    description:
-      "Детектор горизонтальных границ. Bias=128 для отображения отрицательных значений.",
+    description: "Детектор горизонтальных границ. Чёрный фон, светлые границы.",
     kernel: [-1, -1, -1, 0, 0, 0, 1, 1, 1],
     abs: true,
   },
@@ -82,7 +81,6 @@ export function parseKernelValue(raw: string): number {
   if (raw == null) return 0;
   const trimmed = raw.toString().trim();
   if (trimmed === "" || trimmed === "-") return 0;
-  // поддержка дробей вида "1/16"
   if (trimmed.includes("/")) {
     const [a, b] = trimmed.split("/").map((s) => parseFloat(s));
     if (Number.isFinite(a) && Number.isFinite(b) && b !== 0) return a / b;
@@ -91,8 +89,6 @@ export function parseKernelValue(raw: string): number {
   const n = parseFloat(trimmed);
   return Number.isFinite(n) ? n : 0;
 }
-
-/* ---------- padding ---------- */
 
 function padImage(src: ImageData, mode: EdgeMode): ImageData {
   const sw = src.width;
@@ -137,8 +133,6 @@ function padImage(src: ImageData, mode: EdgeMode): ImageData {
   return out;
 }
 
-/* ---------- helpers ---------- */
-
 function clamp255(v: number): number {
   return v < 0 ? 0 : v > 255 ? 255 : v;
 }
@@ -151,8 +145,6 @@ function resolveDivisor(opts: ConvolutionOptions): number {
   if (opts.divisor !== undefined && opts.divisor !== 0) return opts.divisor;
   return 1;
 }
-
-/* ---------- sync ---------- */
 
 export function applyConvolution(
   src: ImageData,
@@ -176,7 +168,8 @@ export function applyConvolution(
     for (let x = 0; x < sw; x++) {
       let sr = 0,
         sg = 0,
-        sb = 0;
+        sb = 0,
+        sa = 0;
       for (let ky = 0; ky < 3; ky++) {
         for (let kx = 0; kx < 3; kx++) {
           const pi = ((y + ky) * pw + (x + kx)) * 4;
@@ -184,31 +177,39 @@ export function applyConvolution(
           sr += pd[pi] * kv;
           sg += pd[pi + 1] * kv;
           sb += pd[pi + 2] * kv;
+          sa += pd[pi + 3] * kv;
         }
       }
       sr = sr / div + bias;
       sg = sg / div + bias;
       sb = sb / div + bias;
+      sa = sa / div + bias;
+
       if (opts.abs) {
         sr = Math.abs(sr);
         sg = Math.abs(sg);
         sb = Math.abs(sb);
+        sa = Math.abs(sa);
       }
 
       const oi = (y * sw + x) * 4;
 
       if (gray) {
-        // grayscale-изображение: один результат на все RGB
-        const v = clamp255(sr);
-        od[oi] = v;
-        od[oi + 1] = v;
-        od[oi + 2] = v;
+        if (opts.channels.r) {
+          const v = clamp255(sr);
+          od[oi] = v;
+          od[oi + 1] = v;
+          od[oi + 2] = v;
+        }
       } else {
         if (opts.channels.r) od[oi] = clamp255(sr);
         if (opts.channels.g) od[oi + 1] = clamp255(sg);
         if (opts.channels.b) od[oi + 2] = clamp255(sb);
       }
-      // alpha не трогаем (берётся из src.data из конструктора out)
+
+      if (opts.channels.a) {
+        od[oi + 3] = clamp255(sa);
+      }
     }
   }
   return out;
@@ -241,7 +242,8 @@ export async function applyConvolutionAsync(
       for (let x = 0; x < sw; x++) {
         let sr = 0,
           sg = 0,
-          sb = 0;
+          sb = 0,
+          sa = 0;
         for (let ky = 0; ky < 3; ky++) {
           for (let kx = 0; kx < 3; kx++) {
             const pi = ((y + ky) * pw + (x + kx)) * 4;
@@ -249,26 +251,41 @@ export async function applyConvolutionAsync(
             sr += pd[pi] * kv;
             sg += pd[pi + 1] * kv;
             sb += pd[pi + 2] * kv;
+            sa += pd[pi + 3] * kv;
           }
         }
         sr = sr / div + bias;
         sg = sg / div + bias;
         sb = sb / div + bias;
+        sa = sa / div + bias;
+
+        if (opts.abs) {
+          sr = Math.abs(sr);
+          sg = Math.abs(sg);
+          sb = Math.abs(sb);
+          sa = Math.abs(sa);
+        }
 
         const oi = (y * sw + x) * 4;
+
         if (gray) {
-          const v = clamp255(sr);
-          od[oi] = v;
-          od[oi + 1] = v;
-          od[oi + 2] = v;
+          if (opts.channels.r) {
+            const v = clamp255(sr);
+            od[oi] = v;
+            od[oi + 1] = v;
+            od[oi + 2] = v;
+          }
         } else {
           if (opts.channels.r) od[oi] = clamp255(sr);
           if (opts.channels.g) od[oi + 1] = clamp255(sg);
           if (opts.channels.b) od[oi + 2] = clamp255(sb);
         }
+
+        if (opts.channels.a) {
+          od[oi + 3] = clamp255(sa);
+        }
       }
     }
-    // отдаём управление браузеру
     await new Promise((r) => setTimeout(r, 0));
   }
   return out;

@@ -370,8 +370,13 @@ export class ImageEditorComponent {
     this.availableChannels.set(list);
     this.isGrayscaleImage.set(detected.grayscale);
 
+    const prev = this.channelState();
     const next: ChannelState = { r: false, g: false, b: false, a: false };
-    for (const k of list) next[k] = true;
+    for (const k of list) next[k] = prev[k];
+
+    if (list.every((k) => !next[k])) {
+      for (const k of list) next[k] = true;
+    }
     this.channelState.set(next);
 
     const labels: Record<ChannelKey, string> = {
@@ -495,11 +500,12 @@ export class ImageEditorComponent {
   async onConvolutionPreview(
     settings: ConvolutionSettings | null
   ): Promise<void> {
+    const token = ++this.convPreviewToken;
     if (!settings || !this.originalImageData) {
       this.previewImageData.set(null);
+      this.convolutionProcessing.set(false);
       return;
     }
-    const token = ++this.convPreviewToken;
     this.convolutionProcessing.set(true);
     try {
       const result = await applyConvolutionAsync(this.originalImageData, {
@@ -525,6 +531,9 @@ export class ImageEditorComponent {
       this.convolutionOpen.set(false);
       return;
     }
+    this.convolutionOpen.set(false);
+    this.convPreviewToken++;
+    this.previewImageData.set(null);
     this.convolutionProcessing.set(true);
     try {
       const result = await applyConvolutionAsync(this.originalImageData, {
@@ -537,17 +546,17 @@ export class ImageEditorComponent {
         grayscale: this.isGrayscaleImage(),
       });
       this.originalImageData = result;
-      this.previewImageData.set(null);
       this.refreshChannelsFromImage(result);
       this.resampleAndDraw();
     } finally {
       this.convolutionProcessing.set(false);
-      this.convolutionOpen.set(false);
     }
   }
 
   onConvolutionCancel(): void {
+    this.convPreviewToken++;
     this.previewImageData.set(null);
+    this.convolutionProcessing.set(false);
     this.convolutionOpen.set(false);
   }
 }

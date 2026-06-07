@@ -17,7 +17,7 @@ export function createDefaultConvolutionSettings(): ConvolutionSettings {
   return {
     presetId: "identity",
     kernel: [0, 0, 0, 0, 1, 0, 0, 0, 0],
-    channels: { r: true, g: true, b: true },
+    channels: { r: true, g: true, b: true, a: false },
     edge: "copy",
     normalize: false,
     bias: 0,

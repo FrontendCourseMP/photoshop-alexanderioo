@@ -68,11 +68,21 @@
       </label>
     </div>
 
-    @if (!isGrayscale()) {
+    <!-- Channels -->
+
     <div class="row">
       <span class="section-title inline">Каналы:</span>
 
-      @if (showR()) {
+      @if (isGrayscale()) { @if (showR()) {
+      <label class="checkbox">
+        <input
+          type="checkbox"
+          [checked]="settings().channels.r"
+          (change)="toggleChannel('r')"
+        />
+        Gray
+      </label>
+      } } @else { @if (showR()) {
       <label class="checkbox">
         <input
           type="checkbox"
@@ -99,14 +109,17 @@
         />
         B
       </label>
+      } } @if (showA()) {
+      <label class="checkbox">
+        <input
+          type="checkbox"
+          [checked]="settings().channels.a"
+          (change)="toggleChannel('a')"
+        />
+        Alpha
+      </label>
       }
     </div>
-    } @else {
-    <div class="note">
-      Изображение в градациях серого — фильтр применяется одинаково ко всем
-      каналам.
-    </div>
-    }
 
     <div class="row">
       <label class="block">
